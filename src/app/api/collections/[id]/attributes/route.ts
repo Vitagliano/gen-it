@@ -10,12 +10,55 @@ function isValidFileType(filename: string): boolean {
   return validExtensions.includes(ext);
 }
 
-export async function POST(
-  req: Request,
+export async function GET(
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const formData = await req.formData();
+    const { searchParams } = new URL(request.url);
+    const address = searchParams.get("address");
+
+    if (!address) {
+      return NextResponse.json(
+        { error: "Address is required" },
+        { status: 400 }
+      );
+    }
+
+    const attributes = await prisma.attribute.findMany({
+      where: {
+        collection: {
+          id: params.id,
+          user: {
+            address: address.toLowerCase(),
+          },
+        },
+      },
+      include: {
+        traits: {
+          orderBy: {
+            name: 'asc'
+          }
+        }
+      },
+      orderBy: {
+        order: 'asc'
+      }
+    });
+
+    return NextResponse.json(attributes);
+  } catch (error) {
+    console.error("[ATTRIBUTES_GET]", error);
+    return new NextResponse("Internal Error", { status: 500 });
+  }
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const formData = await request.formData();
     const name = formData.get("name") as string;
     const order = parseInt(formData.get("order") as string);
     const files = formData.getAll("files") as File[];
@@ -114,48 +157,6 @@ export async function POST(
     console.error("Error creating attribute:", error);
     return NextResponse.json(
       { error: "Failed to create attribute" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const address = searchParams.get("address");
-
-    if (!address) {
-      return NextResponse.json(
-        { error: "Address is required" },
-        { status: 400 }
-      );
-    }
-
-    const attributes = await prisma.attribute.findMany({
-      where: {
-        collection: {
-          id: params.id,
-          user: {
-            address: address.toLowerCase(),
-          },
-        },
-      },
-      include: {
-        traits: true,
-      },
-      orderBy: {
-        order: "asc",
-      },
-    });
-
-    return NextResponse.json(attributes);
-  } catch (error) {
-    console.error("Error fetching attributes:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch attributes" },
       { status: 500 }
     );
   }

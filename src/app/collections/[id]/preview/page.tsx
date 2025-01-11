@@ -205,11 +205,10 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
             .map((attribute) => (
               attribute.traits[0] && (
                 <div key={attribute.id} className="absolute inset-0">
-                  <Image
+                  <img
                     src={`/${attribute.traits[0].imagePath}`}
                     alt={attribute.name}
-                    fill
-                    className="object-contain"
+                    className="object-contain w-full h-full"
                   />
                 </div>
               )

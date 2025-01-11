@@ -28,12 +28,6 @@ export default function UploadPage({ params }: { params: { id: string } }) {
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    if (!isConnected || !address) {
-      router.push("/");
-    }
-  }, [isConnected, address, router]);
-
-  useEffect(() => {
     if (isConnected && address) {
       fetchAttributes();
     }
@@ -41,7 +35,9 @@ export default function UploadPage({ params }: { params: { id: string } }) {
 
   const fetchAttributes = async () => {
     try {
-      const response = await fetch(`/api/collections/${params.id}/attributes?address=${address}`);
+      const response = await fetch(
+        `/api/collections/${params.id}/attributes?address=${address}`
+      );
       if (!response.ok) throw new Error("Failed to fetch attributes");
       const data = await response.json();
       setAttributes(data);
@@ -61,11 +57,11 @@ export default function UploadPage({ params }: { params: { id: string } }) {
 
     // Group files by their parent directory (attribute)
     const filesByAttribute = new Map<string, File[]>();
-    
+
     Array.from(files).forEach((file) => {
       // Get the path parts from webkitRelativePath: "collectionName/attributeName/fileName"
       const pathParts = file.webkitRelativePath.split("/");
-      
+
       if (pathParts.length >= 3) {
         const attributeName = pathParts[1];
         const existingFiles = filesByAttribute.get(attributeName) || [];
@@ -77,7 +73,9 @@ export default function UploadPage({ params }: { params: { id: string } }) {
 
     try {
       // Upload each attribute and its files
-      for (const [attributeName, files] of filesByAttribute.entries()) {
+      for (const [attributeName, files] of Array.from(
+        filesByAttribute.entries()
+      )) {
         const formData = new FormData();
         formData.append("name", attributeName);
         formData.append("order", attributes.length.toString());
@@ -86,10 +84,13 @@ export default function UploadPage({ params }: { params: { id: string } }) {
           formData.append("files", file);
         });
 
-        const response = await fetch(`/api/collections/${params.id}/attributes`, {
-          method: "POST",
-          body: formData,
-        });
+        const response = await fetch(
+          `/api/collections/${params.id}/attributes`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
 
         if (!response.ok) {
           const error = await response.json();
@@ -106,7 +107,8 @@ export default function UploadPage({ params }: { params: { id: string } }) {
       console.error("Error uploading files:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to upload files",
+        description:
+          error instanceof Error ? error.message : "Failed to upload files",
         variant: "destructive",
       });
     } finally {
@@ -125,7 +127,9 @@ export default function UploadPage({ params }: { params: { id: string } }) {
         <div className="text-sm">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 bg-green-500 rounded-full" />
-            <span className="text-gray-600">Connected: {address?.slice(0, 6)}...{address?.slice(-4)}</span>
+            <span className="text-gray-600">
+              Connected: {address?.slice(0, 6)}...{address?.slice(-4)}
+            </span>
           </div>
         </div>
       </div>
@@ -136,22 +140,20 @@ export default function UploadPage({ params }: { params: { id: string } }) {
             Drag n drop your art here!
           </div>
           <p className="text-gray-500 mb-4">
-            Or <label className="text-blue-500 cursor-pointer hover:underline">
+            Or{" "}
+            <label className="text-blue-500 cursor-pointer hover:underline">
               choose a folder
               <input
                 type="file"
-                webkitdirectory=""
-                directory=""
                 className="hidden"
                 onChange={handleFolderSelect}
                 accept="image/png,image/jpeg,image/svg+xml"
               />
-            </label> to get started
+            </label>{" "}
+            to get started
           </p>
           {isUploading && (
-            <div className="text-blue-600">
-              Uploading assets...
-            </div>
+            <div className="text-blue-600">Uploading assets...</div>
           )}
         </div>
       </div>
@@ -167,14 +169,15 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                   {attribute.traits.map((trait) => (
                     <div key={trait.id} className="text-center">
                       <div className="relative w-full pt-[100%] mb-1">
-                        <Image
+                        <img
                           src={`/${trait.imagePath}`}
                           alt={trait.name}
-                          fill
-                          className="object-contain"
+                          className="object-contain w-full h-full"
                         />
                       </div>
-                      <span className="text-xs truncate block">{trait.name}</span>
+                      <span className="text-xs truncate block">
+                        {trait.name}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -194,4 +197,4 @@ export default function UploadPage({ params }: { params: { id: string } }) {
       )}
     </div>
   );
-} 
+}

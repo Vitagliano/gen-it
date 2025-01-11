@@ -47,7 +47,11 @@ interface Attribute {
 
 interface Collection {
   id: string;
+  name: string;
   tokenAmount: number;
+  pixelated: boolean;
+  description?: string;
+  tokenNamePattern: string;
 }
 
 export default function TokensPage({ params }: { params: { id: string } }) {
@@ -62,7 +66,9 @@ export default function TokensPage({ params }: { params: { id: string } }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [newTokenAmount, setNewTokenAmount] = useState<number>(0);
-  const [maxPossibleCombinations, setMaxPossibleCombinations] = useState<number>(0);
+  const [maxPossibleCombinations, setMaxPossibleCombinations] =
+    useState<number>(0);
+  const [selectedToken, setSelectedToken] = useState<Token | null>(null);
 
   useEffect(() => {
     if (isConnected && address) {
@@ -182,21 +188,24 @@ export default function TokensPage({ params }: { params: { id: string } }) {
 
     try {
       setIsRegenerating(true);
-      const response = await fetch(`/api/collections/${params.id}/tokens/amount`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          address,
-          tokenAmount: value,
-          attributes: attributes.map((attr) => ({
-            id: attr.id,
-            isEnabled: true,
-            order: attr.order,
-          })),
-        }),
-      });
+      const response = await fetch(
+        `/api/collections/${params.id}/tokens/amount`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            address,
+            tokenAmount: value,
+            attributes: attributes.map((attr) => ({
+              id: attr.id,
+              isEnabled: true,
+              order: attr.order,
+            })),
+          }),
+        }
+      );
 
       if (!response.ok) throw new Error("Failed to update token amount");
 
@@ -264,18 +273,40 @@ export default function TokensPage({ params }: { params: { id: string } }) {
       return true;
     });
 
+  const generateTokenMetadata = (token: Token) => {
+    if (!collection) return null;
+
+    const tokenName = collection.tokenNamePattern
+      ? collection.tokenNamePattern
+          .replace("{collection}", collection.name || "Collection")
+          .replace("{id}", token.tokenNumber.toString())
+      : `${collection.name || "Collection"} #${token.tokenNumber}`;
+
+    const metadata = {
+      name: tokenName,
+      description: collection.description || "",
+      image: "ipfs://<CID>",
+      attributes: token.traits.map(trait => {
+        const attribute = attributes.find(attr => attr.id === trait.attributeId);
+        return {
+          trait_type: attribute?.name || "",
+          value: trait.name
+        };
+      })
+    };
+
+    return JSON.stringify(metadata, null, 2);
+  };
+
   if (!isConnected || !address) {
     return null;
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="flex flex-col flex-1 p-4">
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            onClick={() => router.push(`/collections/`)}
-          >
+          <Button variant="ghost" onClick={() => router.push(`/collections/`)}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
@@ -320,7 +351,8 @@ export default function TokensPage({ params }: { params: { id: string } }) {
               <DialogHeader>
                 <DialogTitle>Regenerate Collection</DialogTitle>
                 <DialogDescription>
-                  This will regenerate all tokens with new random combinations. This action cannot be undone.
+                  This will regenerate all tokens with new random combinations.
+                  This action cannot be undone.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
@@ -409,7 +441,8 @@ export default function TokensPage({ params }: { params: { id: string } }) {
             {filteredTokens.map((token) => (
               <div
                 key={token.id}
-                className="relative aspect-square border rounded-lg overflow-hidden bg-[#f5f5f5] group hover:border-primary transition-colors"
+                className="relative aspect-square border rounded-lg overflow-hidden bg-[#f5f5f5] group hover:border-primary transition-colors cursor-pointer"
+                onClick={() => setSelectedToken(token)}
               >
                 {token.traits
                   .sort((a, b) => {
@@ -423,11 +456,14 @@ export default function TokensPage({ params }: { params: { id: string } }) {
                   })
                   .map((trait) => (
                     <div key={trait.id} className="absolute inset-0">
-                      <Image
+                      <img
                         src={`http://localhost:3000/${trait.imagePath}`}
                         alt={trait.name}
-                        fill
-                        className="object-contain"
+                        className={
+                          collection?.pixelated
+                            ? "object-contain w-full h-full image-rendering-pixelated"
+                            : "object-contain w-full h-full"
+                        }
                       />
                     </div>
                   ))}
@@ -439,6 +475,68 @@ export default function TokensPage({ params }: { params: { id: string } }) {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!selectedToken} onOpenChange={(open) => !open && setSelectedToken(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Token #{selectedToken?.tokenNumber}</DialogTitle>
+            <DialogDescription>
+              Token details and properties
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <div className="relative aspect-square bg-checkerboard rounded-lg overflow-hidden">
+                {selectedToken?.traits.sort((a, b) => {
+                  const attrA = attributes.find((attr) => attr.id === a.attributeId);
+                  const attrB = attributes.find((attr) => attr.id === b.attributeId);
+                  return (attrA?.order || 0) - (attrB?.order || 0);
+                }).map((trait) => (
+                  <div key={trait.id} className="absolute inset-0">
+                    <img
+                      src={`http://localhost:3000/${trait.imagePath}`}
+                      alt={trait.name}
+                      className={
+                        collection?.pixelated
+                          ? "object-contain w-full h-full image-rendering-pixelated"
+                          : "object-contain w-full h-full"
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-medium mb-3">Properties</h3>
+              <div className="space-y-2">
+                {selectedToken?.traits.map((trait) => {
+                  const attribute = attributes.find((attr) => attr.id === trait.attributeId);
+                  const tokenCount = getTraitTokenCount(trait.id);
+                  const percentage = ((tokenCount / tokens.length) * 100).toFixed(1);
+
+                  return (
+                    <div key={trait.id} className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">{attribute?.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span>{trait.name}</span>
+                        <span className="text-xs text-muted-foreground">({percentage}%)</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedToken(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
