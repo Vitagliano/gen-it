@@ -98,6 +98,28 @@ export default function LayersPage({ params }: { params: { id: string } }) {
 
   const handleGenerateTokens = async () => {
     try {
+      // Create default template first
+      const templateResponse = await fetch(`/api/collections/${params.id}/templates?address=${address}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Default Template",
+          rarity: 100,
+          attributes: attributes.map(attr => ({
+            id: attr.id,
+            enabled: attr.isEnabled,
+          })),
+        }),
+      });
+
+      if (!templateResponse.ok) {
+        const error = await templateResponse.json();
+        throw new Error(error.error || "Failed to create template");
+      }
+
+      // Then generate tokens
       const response = await fetch(`/api/collections/${params.id}/tokens`, {
         method: "POST",
         headers: {
@@ -113,7 +135,10 @@ export default function LayersPage({ params }: { params: { id: string } }) {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to generate tokens");
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to generate tokens");
+      }
 
       toast({
         title: "Success",
@@ -125,7 +150,7 @@ export default function LayersPage({ params }: { params: { id: string } }) {
       console.error("Error:", error);
       toast({
         title: "Error",
-        description: "Failed to generate tokens",
+        description: error instanceof Error ? error.message : "Failed to generate tokens",
         variant: "destructive",
       });
     }

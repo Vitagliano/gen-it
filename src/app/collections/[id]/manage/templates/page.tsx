@@ -414,7 +414,6 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     setDraggedItem(index);
     e.currentTarget.classList.add('opacity-50');
-    // Required for Firefox
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -433,17 +432,57 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
     
     if (draggedItem === null) return;
 
-    const items = Array.from(newTemplateAttributes);
-    const [reorderedItem] = items.splice(draggedItem, 1);
-    items.splice(index, 0, reorderedItem);
+    if (isCreating) {
+      const items = Array.from(newTemplateAttributes);
+      const [reorderedItem] = items.splice(draggedItem, 1);
+      items.splice(index, 0, reorderedItem);
 
-    // Update order values
-    const updatedItems = items.map((item, index) => ({
-      ...item,
-      order: index,
-    }));
+      // Update order values
+      const updatedItems = items.map((item, index) => ({
+        ...item,
+        order: index,
+      }));
 
-    setNewTemplateAttributes(updatedItems);
+      setNewTemplateAttributes(updatedItems);
+    } else if (selectedTemplate) {
+      const orderedAttributes = attributes
+        .sort((a, b) => a.order - b.order)
+        .map(attr => ({
+          ...attr,
+          enabled: selectedTemplate.attributes.find(ta => ta.id === attr.id)?.enabled ?? false
+        }));
+
+      const items = Array.from(orderedAttributes);
+      const [reorderedItem] = items.splice(draggedItem, 1);
+      items.splice(index, 0, reorderedItem);
+
+      // Update order values
+      const updatedItems = items.map((item, index) => ({
+        ...item,
+        order: index,
+      }));
+
+      // Update the attributes order in the database
+      setAttributes(updatedItems);
+
+      // Update the template attributes to maintain enabled states
+      if (selectedTemplate) {
+        setEditedTemplates(prev =>
+          prev.map(t =>
+            t.id === selectedTemplate.id
+              ? {
+                  ...t,
+                  attributes: updatedItems.map(attr => ({
+                    id: attr.id,
+                    enabled: t.attributes.find(ta => ta.id === attr.id)?.enabled ?? false,
+                  })),
+                }
+              : t
+          )
+        );
+      }
+    }
+
     setDraggedItem(null);
   };
 
@@ -701,63 +740,140 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
       </Dialog>
 
       <Dialog open={!!selectedTemplate} onOpenChange={(open) => !open && setSelectedTemplate(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Edit Template Attributes</DialogTitle>
+            <DialogTitle>Edit Template</DialogTitle>
             <DialogDescription>
-              Enable or disable attributes for this template.
+              Edit template attributes and preview changes.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            {attributes.sort((a, b) => a.order - b.order).map((attribute) => {
-              const templateAttribute = selectedTemplate?.attributes.find(
-                ta => ta.id === attribute.id
-              );
-              return (
-                <div key={attribute.id} className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="relative w-12 h-12 bg-[#f5f5f5] bg-[linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee),linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee)] bg-[length:8px_8px] bg-[position:0_0,4px_4px] rounded-md overflow-hidden">
-                      {attribute.traits[0] && (
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label htmlFor="name" className="text-sm font-medium">
+                  Name
+                </label>
+                <Input
+                  id="name"
+                  value={selectedTemplate?.name || ""}
+                  onChange={(e) => {
+                    if (!selectedTemplate) return;
+                    setEditedTemplates(prev =>
+                      prev.map(t =>
+                        t.id === selectedTemplate.id
+                          ? { ...t, name: e.target.value }
+                          : t
+                      )
+                    );
+                  }}
+                  placeholder="Enter template name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Attributes
+                </label>
+                <div className="space-y-2">
+                  {attributes
+                    .sort((a, b) => a.order - b.order)
+                    .map((attribute, index) => {
+                      const templateAttribute = selectedTemplate?.attributes.find(
+                        ta => ta.id === attribute.id
+                      );
+                      return (
+                        <div
+                          key={attribute.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, index)}
+                          onDragEnd={handleDragEnd}
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDrop(e, index)}
+                          className="flex items-center justify-between p-2 bg-background border rounded-md cursor-move transition-opacity duration-200"
+                        >
+                          <div className="flex items-center gap-4">
+                            <GripVertical className="w-4 h-4 text-muted-foreground" />
+                            <div className="relative w-8 h-8 bg-[#f5f5f5] bg-[linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee),linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee)] bg-[length:8px_8px] bg-[position:0_0,4px_4px] rounded-md overflow-hidden">
+                              {attribute.traits[0] && (
+                                <img
+                                  src={`/${attribute.traits[0].imagePath}`}
+                                  alt={attribute.name}
+                                  className={
+                                    collection?.pixelated
+                                      ? "w-full h-full object-contain image-rendering-pixelated"
+                                      : "w-full h-full object-contain"
+                                  }
+                                />
+                              )}
+                            </div>
+                            <span className="font-medium">{attribute.name}</span>
+                          </div>
+                          <Switch
+                            checked={templateAttribute?.enabled ?? false}
+                            onCheckedChange={(checked) => {
+                              if (!selectedTemplate) return;
+                              setEditedTemplates(prev =>
+                                prev.map(t =>
+                                  t.id === selectedTemplate.id
+                                    ? {
+                                        ...t,
+                                        attributes: t.attributes.map(a =>
+                                          a.id === attribute.id
+                                            ? { ...a, enabled: checked }
+                                            : a
+                                        ),
+                                      }
+                                    : t
+                                )
+                              );
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="relative aspect-square bg-[#f5f5f5] bg-[linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee),linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee)] bg-[length:16px_16px] bg-[position:0_0,8px_8px] rounded-lg overflow-hidden">
+                {selectedTemplate && attributes
+                  .filter(attr => {
+                    const templateAttribute = selectedTemplate.attributes.find(
+                      ta => ta.id === attr.id
+                    );
+                    return templateAttribute?.enabled;
+                  })
+                  .sort((a, b) => a.order - b.order)
+                  .map(attribute => {
+                    if (!attribute.traits[0]) return null;
+                    return (
+                      <div key={attribute.id} className="absolute inset-0 w-full h-full">
                         <img
                           src={`/${attribute.traits[0].imagePath}`}
                           alt={attribute.name}
-                          className={
+                          className={`w-full h-full ${
                             collection?.pixelated
-                              ? "w-full h-full object-contain image-rendering-pixelated"
-                              : "w-full h-full object-contain"
-                          }
+                              ? "object-contain image-rendering-pixelated"
+                              : "object-contain"
+                          }`}
+                          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                         />
-                      )}
-                    </div>
-                    <span className="font-medium">{attribute.name}</span>
-                  </div>
-                  <Switch
-                    checked={templateAttribute?.enabled ?? false}
-                    onCheckedChange={(checked) => {
-                      if (!selectedTemplate) return;
-                      setEditedTemplates(prev =>
-                        prev.map(t =>
-                          t.id === selectedTemplate.id
-                            ? {
-                                ...t,
-                                attributes: t.attributes.map(a =>
-                                  a.id === attribute.id
-                                    ? { ...a, enabled: checked }
-                                    : a
-                                ),
-                              }
-                            : t
-                        )
-                      );
-                    }}
-                  />
-                </div>
-              );
-            })}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedTemplate(null)}>
-              Close
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setSelectedTemplate(null);
+              setHasChanges(true);
+            }}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

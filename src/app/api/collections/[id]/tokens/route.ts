@@ -10,7 +10,11 @@ interface TokenTraitConnection {
 }
 
 function weightedRandom<T extends { id: string; rarity: number }>(items: T[]) {
+  if (!items.length) return null;
+  
   const totalWeight = items.reduce((acc, item) => acc + item.rarity, 0);
+  if (totalWeight <= 0) return items[0]; // Default to first item if no valid weights
+  
   let random = Math.random() * totalWeight;
   
   for (const item of items) {
@@ -82,6 +86,14 @@ export async function POST(
       );
     }
 
+    // Before selecting a template, verify we have templates
+    if (collection.templates.length === 0) {
+      return NextResponse.json(
+        { error: "No templates found. Please create at least one template." },
+        { status: 400 }
+      );
+    }
+
     // Delete existing tokens
     await prisma.token.deleteMany({
       where: {
@@ -96,6 +108,12 @@ export async function POST(
     for (let i = 0; i < collection.tokenAmount; i++) {
       // Select a template based on rarity
       const selectedTemplate = weightedRandom(collection.templates);
+      if (!selectedTemplate) {
+        return NextResponse.json(
+          { error: "Failed to select a template. Please check template rarities." },
+          { status: 400 }
+        );
+      }
       
       // For each token, select traits based on the template's enabled attributes
       const selectedTraits = attributes
@@ -109,7 +127,8 @@ export async function POST(
           const attribute = collection.attributes.find(a => a.id === attr.id);
           if (!attribute || !attribute.traits.length) return null;
           
-          return weightedRandom(attribute.traits).id;
+          const selectedTrait = weightedRandom(attribute.traits);
+          return selectedTrait?.id || null;
         })
         .filter(Boolean) as string[];
 
