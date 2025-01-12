@@ -30,23 +30,25 @@ model Collection {
   format       String       // "svg", "jpg", "png"
   pixelated    Boolean      @default(false)
   startAtZero  Boolean      @default(false)
-  user         User         @relation(fields: [userId], references: [id])
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId       String       @db.ObjectId
   attributes   Attribute[]
   tokens       Token[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+  templates    Template[]
 }
 
 model Attribute {
   id           String       @id @default(auto()) @map("_id") @db.ObjectId
   name         String       // Ex: "Clothes", "Hair", "Eyes"
   order        Int          // Ordem da layer
-  collection   Collection   @relation(fields: [collectionId], references: [id])
+  collection   Collection   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   collectionId String       @db.ObjectId
   traits       Trait[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+  templates    TemplateAttribute[]
 }
 
 model Trait {
@@ -73,4 +75,28 @@ model Token {
   traitIds     String[]     @db.ObjectId
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+}
+
+model Template {
+  id           String              @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  rarity       Int                 @default(100)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  collectionId String              @db.ObjectId
+  collection   Collection          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  attributes   TemplateAttribute[]
+}
+
+model TemplateAttribute {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  enabled     Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  templateId  String    @db.ObjectId
+  template    Template  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  attributeId String    @db.ObjectId
+  attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, attributeId])
 }
