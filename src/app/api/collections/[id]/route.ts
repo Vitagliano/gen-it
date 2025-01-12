@@ -54,6 +54,107 @@ export async function GET(
   }
 }
 
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const address = searchParams.get("address");
+
+    if (!address) {
+      return NextResponse.json(
+        { error: "Address is required" },
+        { status: 400 }
+      );
+    }
+
+    // Verify collection ownership
+    const collection = await prisma.collection.findFirst({
+      where: {
+        id: params.id,
+        user: {
+          address: address.toLowerCase(),
+        },
+      },
+      include: {
+        attributes: {
+          include: {
+            traits: true,
+          },
+        },
+        tokens: {
+          include: {
+            traits: true,
+          },
+        },
+      },
+    });
+
+    if (!collection) {
+      return NextResponse.json(
+        { error: "Collection not found" },
+        { status: 404 }
+      );
+    }
+
+    // Delete in the correct order to handle foreign key constraints
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete token-trait relationships
+      for (const token of collection.tokens) {
+        await tx.token.update({
+          where: { id: token.id },
+          data: {
+            traits: {
+              disconnect: token.traits.map(trait => ({ id: trait.id })),
+            },
+          },
+        });
+      }
+
+      // 2. Delete tokens
+      await tx.token.deleteMany({
+        where: {
+          collectionId: params.id,
+        },
+      });
+
+      // 3. Delete traits
+      for (const attribute of collection.attributes) {
+        await tx.trait.deleteMany({
+          where: {
+            attributeId: attribute.id,
+          },
+        });
+      }
+
+      // 4. Delete attributes
+      await tx.attribute.deleteMany({
+        where: {
+          collectionId: params.id,
+        },
+      });
+
+      // 5. Finally, delete the collection
+      await tx.collection.delete({
+        where: {
+          id: params.id,
+        },
+      });
+    });
+
+    return NextResponse.json({
+      message: "Collection deleted successfully"
+    });
+  } catch (error) {
+    console.error("[COLLECTION_DELETE]", error);
+    return NextResponse.json(
+      { error: "Failed to delete collection" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }

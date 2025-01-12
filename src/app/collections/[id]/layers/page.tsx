@@ -3,11 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
-import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, GripVertical } from "lucide-react";
+import { GripVertical, ArrowLeft } from "lucide-react";
 
 interface Trait {
   id: string;
@@ -24,19 +23,12 @@ interface Attribute {
   isEnabled?: boolean;
 }
 
-export default function PreviewPage({ params }: { params: { id: string } }) {
+export default function LayersPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { address, isConnected } = useAccount();
   const { toast } = useToast();
   const [attributes, setAttributes] = useState<Attribute[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [draggedItem, setDraggedItem] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!isConnected || !address) {
-      router.push("/");
-    }
-  }, [isConnected, address, router]);
 
   useEffect(() => {
     if (isConnected && address) {
@@ -49,7 +41,6 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
       const response = await fetch(`/api/collections/${params.id}/attributes?address=${address}`);
       if (!response.ok) throw new Error("Failed to fetch attributes");
       const data = await response.json();
-      // Add isEnabled flag to each attribute and ensure order
       const attributesWithState = data
         .map((attr: Attribute, index: number) => ({
           ...attr,
@@ -58,7 +49,6 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
         }))
         .sort((a: Attribute, b: Attribute) => a.order - b.order);
       setAttributes(attributesWithState);
-      setIsLoading(false);
     } catch (error) {
       console.error("Error:", error);
       toast({
@@ -90,12 +80,9 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
     const items = [...attributes];
     const draggedItemContent = items[draggedItem];
     
-    // Remove the dragged item
     items.splice(draggedItem, 1);
-    // Insert it at the new position
     items.splice(index, 0, draggedItemContent);
     
-    // Update the order property for each item
     const reorderedItems = items.map((item, idx) => ({
       ...item,
       order: idx,
@@ -130,7 +117,7 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
 
       toast({
         title: "Success",
-        description: "Tokens generated successfully",
+        description: "Collection created successfully",
       });
       
       router.push(`/collections/${params.id}/tokens`);
@@ -154,25 +141,19 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
-            onClick={() => router.push(`/collections/${params.id}/upload`)}
+            onClick={() => router.back()}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-3xl font-bold">Adjust Default Template</h1>
+          <h1 className="text-3xl font-bold">Adjust Layer Order</h1>
         </div>
         <Button onClick={handleGenerateTokens}>Create Collection</Button>
       </div>
 
-      <p className="text-gray-600 mb-8 text-center">
-        Templates are used to set the layer order for each of the attribute
-        groups in your collection. You can add more templates later to
-        generate different types of tokens.
-      </p>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold mb-4">Attributes</h2>
+          <h2 className="text-xl font-semibold mb-4">Layers</h2>
           {attributes.map((attribute, index) => (
             <div
               key={attribute.id}

@@ -5,7 +5,15 @@ import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Collection {
   id: string;
@@ -28,6 +36,8 @@ export default function CollectionsPage() {
   const { toast } = useToast();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [collectionToDelete, setCollectionToDelete] = useState<Collection | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (isConnected && address) {
@@ -53,11 +63,52 @@ export default function CollectionsPage() {
   };
 
   const handleCollectionClick = (collection: Collection) => {
-    // If collection has tokens, go to tokens page, otherwise go to preview
+    // If collection has tokens, go to tokens page, otherwise go to layers page
     if (collection._count?.tokens && collection._count.tokens > 0) {
       router.push(`/collections/${collection.id}/tokens`);
     } else {
-      router.push(`/collections/${collection.id}/preview`);
+      router.push(`/collections/${collection.id}/layers`);
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, collection: Collection) => {
+    e.stopPropagation(); // Prevent triggering the card click
+    setCollectionToDelete(collection);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!collectionToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(
+        `/api/collections/${collectionToDelete.id}?address=${address}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to delete collection");
+
+      toast({
+        title: "Success",
+        description: "Collection deleted successfully",
+      });
+
+      // Remove the deleted collection from the state
+      setCollections((prev) =>
+        prev.filter((c) => c.id !== collectionToDelete.id)
+      );
+    } catch (error) {
+      console.error("Error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete collection",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setCollectionToDelete(null);
     }
   };
 
@@ -80,16 +131,28 @@ export default function CollectionsPage() {
           <div
             key={collection.id}
             onClick={() => handleCollectionClick(collection)}
-            className="border rounded-lg p-4 hover:border-primary cursor-pointer transition-colors"
+            className="border rounded-lg p-4 hover:border-primary cursor-pointer transition-colors group relative"
           >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => handleDeleteClick(e, collection)}
+            >
+              <Trash2 className="w-4 h-4 text-destructive" />
+            </Button>
+
             <h2 className="text-xl font-semibold mb-2">{collection.name}</h2>
             {collection.description && (
-              <p className="text-gray-600 mb-4 line-clamp-2">{collection.description}</p>
+              <p className="text-gray-600 mb-4 line-clamp-2">
+                {collection.description}
+              </p>
             )}
             <div className="flex justify-between text-sm text-gray-500">
               <span>{collection.tokenAmount} tokens</span>
               <span>
-                {collection.dimensions.width}x{collection.dimensions.height} {collection.format}
+                {collection.dimensions.width}x{collection.dimensions.height}{" "}
+                {collection.format}
               </span>
             </div>
             {collection._count?.tokens && collection._count.tokens > 0 && (
@@ -100,6 +163,33 @@ export default function CollectionsPage() {
           </div>
         ))}
       </div>
+
+      <Dialog open={!!collectionToDelete} onOpenChange={(open) => !open && setCollectionToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Collection</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &quot;{collectionToDelete?.name}&quot;? This action is irreversible and will delete all related data including attributes, traits, and generated tokens.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCollectionToDelete(null)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete Collection"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

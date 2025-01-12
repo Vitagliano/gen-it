@@ -69,12 +69,11 @@ export async function GET(req: Request) {
         },
       },
       include: {
-        attributes: {
-          include: {
-            traits: true,
+        _count: {
+          select: {
+            tokens: true,
           },
         },
-        tokens: true,
       },
     });
 
