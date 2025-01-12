@@ -8,7 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { Search } from "lucide-react";
+import { Search, MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 interface Trait {
   id: string;
@@ -40,6 +47,7 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
   const [editedAttributes, setEditedAttributes] = useState<Attribute[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
+  const [rarityMode, setRarityMode] = useState<"percentage" | "weight">("percentage");
 
   useEffect(() => {
     if (isConnected && address) {
@@ -97,37 +105,95 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
     }
   };
 
-  const handleUpdateTraitRarity = (attributeId: string, traitId: string, newRarity: number) => {
+  const updateTraitRarities = (attributeId: string, traitId: string, newRarity: number) => {
     setEditedAttributes(prev => 
-      prev.map(attr => 
-        attr.id === attributeId
-          ? {
+      prev.map(attr => {
+        if (attr.id !== attributeId) return attr;
+
+        if (rarityMode === "percentage") {
+          // Get all enabled traits except the current one
+          const otherEnabledTraits = attr.traits.filter(t => t.id !== traitId && t.isEnabled);
+          
+          if (otherEnabledTraits.length === 0) {
+            // If this is the only enabled trait, it should have 100% rarity
+            return {
               ...attr,
               traits: attr.traits.map(trait =>
-                trait.id === traitId
-                  ? { ...trait, rarity: newRarity }
-                  : trait
+                trait.id === traitId ? { ...trait, rarity: 100 } : trait
               ),
-            }
-          : attr
-      )
+            };
+          }
+
+          // Calculate remaining rarity to distribute
+          const remainingRarity = Math.max(0, 100 - newRarity);
+          
+          // Calculate current total of other traits
+          const currentTotal = otherEnabledTraits.reduce((sum, t) => sum + t.rarity, 0);
+          
+          // If current total is 0, distribute remaining rarity equally
+          const shouldDistributeEqually = currentTotal === 0;
+
+          return {
+            ...attr,
+            traits: attr.traits.map(trait => {
+              if (trait.id === traitId) {
+                return { ...trait, rarity: newRarity };
+              }
+              if (!trait.isEnabled) {
+                return trait;
+              }
+              if (shouldDistributeEqually) {
+                return {
+                  ...trait,
+                  rarity: remainingRarity / otherEnabledTraits.length,
+                };
+              }
+              // Adjust proportionally based on current ratios
+              const proportion = trait.rarity / currentTotal;
+              return {
+                ...trait,
+                rarity: remainingRarity * proportion,
+              };
+            }),
+          };
+        } else {
+          // For weight mode, just update the single trait
+          return {
+            ...attr,
+            traits: attr.traits.map(trait =>
+              trait.id === traitId ? { ...trait, rarity: newRarity } : trait
+            ),
+          };
+        }
+      })
     );
+  };
+
+  const handleUpdateTraitRarity = (attributeId: string, traitId: string, newValue: number) => {
+    const newRarity = Math.min(100, Math.max(0, newValue));
+    updateTraitRarities(attributeId, traitId, newRarity);
   };
 
   const handleToggleTrait = (attributeId: string, traitId: string) => {
     setEditedAttributes(prev => 
-      prev.map(attr => 
-        attr.id === attributeId
-          ? {
-              ...attr,
-              traits: attr.traits.map(trait =>
-                trait.id === traitId
-                  ? { ...trait, isEnabled: !trait.isEnabled }
-                  : trait
-              ),
-            }
-          : attr
-      )
+      prev.map(attr => {
+        if (attr.id !== attributeId) return attr;
+
+        const updatedTraits = attr.traits.map(trait =>
+          trait.id === traitId ? { ...trait, isEnabled: !trait.isEnabled } : trait
+        );
+
+        // Recalculate rarities for enabled traits
+        const enabledTraits = updatedTraits.filter(t => t.isEnabled);
+        const equalRarity = 100 / enabledTraits.length;
+
+        return {
+          ...attr,
+          traits: updatedTraits.map(trait =>
+            trait.isEnabled ? { ...trait, rarity: equalRarity } : trait
+          ),
+        };
+      })
     );
   };
 
@@ -141,20 +207,44 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
 
       // Update each changed attribute's traits
       for (const attribute of changedAttributes) {
-        const response = await fetch(
-          `/api/collections/${params.id}/attributes/${attribute.id}?address=${address}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              traits: attribute.traits,
-            }),
-          }
-        );
+        for (const trait of attribute.traits) {
+          await fetch(
+            `/api/collections/${params.id}/attributes/${attribute.id}/traits/${trait.id}?address=${address}`,
+            {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                rarity: trait.rarity,
+                isEnabled: trait.isEnabled,
+              }),
+            }
+          );
+        }
+      }
 
-        if (!response.ok) throw new Error(`Failed to update attribute ${attribute.name}`);
+      // Regenerate tokens with updated rarities
+      const regenerateResponse = await fetch(
+        `/api/collections/${params.id}/tokens?address=${address}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            address,
+            attributes: editedAttributes.map(attr => ({
+              id: attr.id,
+              order: attr.order,
+              isEnabled: attr.traits.some(t => t.isEnabled),
+            })),
+          }),
+        }
+      );
+
+      if (!regenerateResponse.ok) {
+        throw new Error("Failed to regenerate tokens");
       }
 
       setAttributes(editedAttributes);
@@ -162,13 +252,13 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
 
       toast({
         title: "Success",
-        description: "Changes saved successfully",
+        description: "Changes saved and tokens regenerated successfully",
       });
     } catch (error) {
       console.error("Error:", error);
       toast({
         title: "Error",
-        description: "Failed to save changes",
+        description: "Failed to save changes and regenerate tokens",
         variant: "destructive",
       });
     }
@@ -202,6 +292,14 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
             </a>
           </p>
         </div>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            onClick={() => setRarityMode(mode => mode === "percentage" ? "weight" : "percentage")}
+          >
+            {rarityMode === "percentage" ? "Using Percentages (%)" : "Using Weights (#)"}
+          </Button>
+        </div>
       </div>
 
       <div className="flex justify-between items-center mb-6">
@@ -228,66 +326,86 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              {attribute.traits.map((trait) => (
-                <div
-                  key={trait.id}
-                  className="border rounded-lg overflow-hidden"
-                >
-                  <div className="relative aspect-square bg-[#f5f5f5] bg-[linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee),linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee)] bg-[length:16px_16px] bg-[position:0_0,8px_8px]">
-                    <img
-                      src={`/${trait.imagePath}`}
-                      alt={trait.name}
-                      className={
-                        collection?.pixelated
-                          ? "object-contain w-full h-full image-rendering-pixelated"
-                          : "object-contain w-full h-full"
-                      }
-                    />
-                  </div>
-
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-sm">{trait.name}</span>
-                      <Switch
-                        checked={trait.isEnabled}
-                        onCheckedChange={() =>
-                          handleToggleTrait(attribute.id, trait.id)
+            <div className="overflow-x-auto">
+              <div className="flex gap-4 min-w-max pb-4">
+                {attribute.traits.map((trait) => (
+                  <div
+                    key={trait.id}
+                    className="border rounded-lg w-[200px]"
+                  >
+                    <div className="relative aspect-square bg-[#f5f5f5] bg-[linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee),linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee)] bg-[length:16px_16px] bg-[position:0_0,8px_8px]">
+                      <img
+                        src={`/${trait.imagePath}`}
+                        alt={trait.name}
+                        className={
+                          collection?.pixelated
+                            ? "object-contain w-full h-full image-rendering-pixelated"
+                            : "object-contain w-full h-full"
                         }
                       />
+                      <div className="absolute top-2 right-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 bg-white/80 hover:bg-white">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem>
+                              <div className="flex items-center justify-between w-full">
+                                <span>Enabled</span>
+                                <Switch
+                                  checked={trait.isEnabled}
+                                  onCheckedChange={() => handleToggleTrait(attribute.id, trait.id)}
+                                />
+                              </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem>Show in metadata</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
 
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between text-sm text-gray-500">
-                        <span>Estimated {trait.rarity}%</span>
-                        <div className="flex items-center gap-1">
-                          <span className={`w-2 h-2 rounded-full ${trait.rarity <= 8.33 ? 'bg-primary' : 'bg-gray-300'}`} />
-                          <span className={`w-2 h-2 rounded-full ${trait.rarity > 8.33 && trait.rarity <= 16.67 ? 'bg-primary' : 'bg-gray-300'}`} />
-                          <span className={`w-2 h-2 rounded-full ${trait.rarity > 16.67 ? 'bg-primary' : 'bg-gray-300'}`} />
-                        </div>
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="font-medium text-sm">{trait.name}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="w-8 h-8"
-                          onClick={() => handleUpdateTraitRarity(attribute.id, trait.id, Math.max(0, trait.rarity - 1))}
-                        >
-                          #
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="w-8 h-8"
-                          onClick={() => handleUpdateTraitRarity(attribute.id, trait.id, Math.min(100, trait.rarity + 1))}
-                        >
-                          %
-                        </Button>
+
+                      <div className="space-y-4">
+                        {rarityMode === "percentage" ? (
+                          <>
+                            <Slider
+                              value={[trait.rarity]}
+                              onValueChange={([value]) => handleUpdateTraitRarity(attribute.id, trait.id, value)}
+                              min={0}
+                              max={100}
+                              step={0.1}
+                              disabled={!trait.isEnabled}
+                            />
+                            <div className="text-sm text-gray-500">
+                              {trait.rarity.toFixed(1)}%
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              value={trait.rarity}
+                              onChange={(e) => handleUpdateTraitRarity(attribute.id, trait.id, parseFloat(e.target.value))}
+                              min={0}
+                              step={1}
+                              disabled={!trait.isEnabled}
+                              className="w-20"
+                            />
+                            <span className="text-sm text-gray-500">weight</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         ))}

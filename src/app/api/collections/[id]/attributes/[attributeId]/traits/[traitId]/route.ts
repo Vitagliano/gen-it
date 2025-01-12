@@ -34,31 +34,37 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { rarity } = body
+    const { rarity, isEnabled } = body
 
-    if (typeof rarity !== "number" || rarity < 0 || rarity > 100) {
+    // Validate rarity if provided
+    if (typeof rarity === 'number' && (rarity < 0 || rarity > 100)) {
       return NextResponse.json(
-        { error: "Invalid rarity value" },
+        { error: "Rarity must be between 0 and 100" },
         { status: 400 }
       )
     }
 
+    // Update trait
     const trait = await prisma.trait.update({
       where: {
         id: params.traitId,
         attributeId: params.attributeId,
         attribute: {
-          collectionId: params.id
-        }
+          collectionId: params.id,
+        },
       },
       data: {
-        rarity
-      }
+        ...(typeof rarity === 'number' && { rarity }),
+        ...(typeof isEnabled === 'boolean' && { isEnabled }),
+      },
     })
 
     return NextResponse.json(trait)
   } catch (error) {
     console.error("[TRAIT_PATCH]", error)
-    return new NextResponse("Internal Error", { status: 500 })
+    return NextResponse.json(
+      { error: "Failed to update trait" },
+      { status: 500 }
+    )
   }
 } 
