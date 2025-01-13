@@ -1,44 +1,43 @@
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Layers, Sliders, Settings, Rocket } from "lucide-react"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Layers, Sliders, Settings, Rocket } from "lucide-react";
 
 interface CollectionNavProps {
-  collectionId: string
+  collectionId: string;
 }
 
 export function CollectionNav({ collectionId }: CollectionNavProps) {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   const items = [
     {
       title: "Tokens",
       href: `/collections/${collectionId}/tokens`,
-      icon: Layers
+      icon: Layers,
     },
     {
       title: "Manage",
       href: `/collections/${collectionId}/manage`,
-      icon: Sliders
+      icon: Sliders,
     },
     {
       title: "Settings",
       href: `/collections/${collectionId}/settings`,
-      icon: Settings
+      icon: Settings,
     },
     {
       title: "Launch",
       href: `/collections/${collectionId}/launch`,
-      icon: Rocket
-    }
-  ]
+      icon: Rocket,
+    },
+  ];
 
   return (
     <div className="flex items-center gap-2 border-b px-4 h-14">
       {items.map((item) => {
-        const Icon = item.icon
-        const isActive = pathname.startsWith(item.href)
+        const Icon = item.icon;
+        const isActive = pathname.startsWith(item.href);
         return (
           <Link key={item.href} href={item.href}>
             <Button
@@ -50,8 +49,8 @@ export function CollectionNav({ collectionId }: CollectionNavProps) {
               {item.title}
             </Button>
           </Link>
-        )
+        );
       })}
     </div>
-  )
-} 
+  );
+}

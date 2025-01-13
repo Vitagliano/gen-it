@@ -32,7 +32,7 @@ interface PreviewAttribute {
 }
 
 interface UploadProgress {
-  status: 'creating' | 'uploading' | 'processing' | 'done' | 'error';
+  status: "creating" | "uploading" | "processing" | "done" | "error";
   currentAttribute?: string;
   totalAttributes?: number;
   processedAttributes?: number;
@@ -44,17 +44,23 @@ export default function NewCollection() {
   const { address, isConnected } = useAccount();
   const { toast } = useToast();
   const [attributes, setAttributes] = useState<Attribute[]>([]);
-  const [previewAttributes, setPreviewAttributes] = useState<PreviewAttribute[]>([]);
+  const [previewAttributes, setPreviewAttributes] = useState<
+    PreviewAttribute[]
+  >([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({ status: 'done' });
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
+    status: "done",
+  });
   const [collectionId, setCollectionId] = useState<string | null>(null);
+
+  console.log("attributes", attributes);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
+      reader.onerror = (error) => reject(error);
     });
   };
 
@@ -78,7 +84,9 @@ export default function NewCollection() {
 
     // Generate previews first
     const previewAttributesData: PreviewAttribute[] = [];
-    for (const [attributeName, files] of Array.from(filesByAttribute.entries())) {
+    for (const [attributeName, files] of Array.from(
+      filesByAttribute.entries()
+    )) {
       const previewTraits: PreviewTrait[] = [];
       for (const file of files) {
         try {
@@ -89,12 +97,15 @@ export default function NewCollection() {
           console.error("Error generating preview for", file.name, error);
         }
       }
-      previewAttributesData.push({ name: attributeName, traits: previewTraits });
+      previewAttributesData.push({
+        name: attributeName,
+        traits: previewTraits,
+      });
     }
     setPreviewAttributes(previewAttributesData);
 
     setIsUploading(true);
-    setUploadProgress({ status: 'creating' });
+    setUploadProgress({ status: "creating" });
 
     try {
       // Create collection first with default values
@@ -123,15 +134,17 @@ export default function NewCollection() {
 
       // Start uploading attributes in the background
       setUploadProgress({
-        status: 'uploading',
+        status: "uploading",
         totalAttributes: filesByAttribute.size,
         processedAttributes: 0,
       });
 
       // Upload each attribute and its files
       let processed = 0;
-      for (const [attributeName, files] of Array.from(filesByAttribute.entries())) {
-        setUploadProgress(prev => ({
+      for (const [attributeName, files] of Array.from(
+        filesByAttribute.entries()
+      )) {
+        setUploadProgress((prev) => ({
           ...prev,
           currentAttribute: attributeName,
           processedAttributes: processed,
@@ -166,23 +179,25 @@ export default function NewCollection() {
         processed++;
       }
 
-      setUploadProgress({ status: 'processing' });
+      setUploadProgress({ status: "processing" });
       await fetchAttributes(collection.id);
-      
-      setUploadProgress({ status: 'done' });
+
+      setUploadProgress({ status: "done" });
       toast({
         title: "Success",
         description: "Assets uploaded successfully",
       });
     } catch (error) {
       console.error("Error:", error);
-      setUploadProgress({ 
-        status: 'error',
-        error: error instanceof Error ? error.message : "Failed to upload files"
+      setUploadProgress({
+        status: "error",
+        error:
+          error instanceof Error ? error.message : "Failed to upload files",
       });
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to upload files",
+        description:
+          error instanceof Error ? error.message : "Failed to upload files",
         variant: "destructive",
       });
     } finally {
@@ -192,7 +207,9 @@ export default function NewCollection() {
 
   const fetchAttributes = async (id: string) => {
     try {
-      const response = await fetch(`/api/collections/${id}/attributes?address=${address}`);
+      const response = await fetch(
+        `/api/collections/${id}/attributes?address=${address}`
+      );
       if (!response.ok) throw new Error("Failed to fetch attributes");
       const data = await response.json();
       setAttributes(data);
@@ -206,52 +223,55 @@ export default function NewCollection() {
     }
   };
 
-  const renderUploadStatus = () => {
-    switch (uploadProgress.status) {
-      case 'creating':
-        return (
-          <div className="flex items-center gap-2 text-blue-600">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Creating collection...
-          </div>
-        );
-      case 'uploading':
-        return (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-blue-600">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Uploading {uploadProgress.currentAttribute}...
-            </div>
-            <div className="text-sm text-gray-500">
-              Progress: {uploadProgress.processedAttributes} of {uploadProgress.totalAttributes} attributes
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ 
-                  width: `${(uploadProgress.processedAttributes! / uploadProgress.totalAttributes!) * 100}%`
-                }}
-              />
-            </div>
-          </div>
-        );
-      case 'processing':
-        return (
-          <div className="flex items-center gap-2 text-blue-600">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Processing attributes...
-          </div>
-        );
-      case 'error':
-        return (
-          <div className="text-red-600">
-            Error: {uploadProgress.error}
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
+  // const renderUploadStatus = () => {
+  //   switch (uploadProgress.status) {
+  //     case "creating":
+  //       return (
+  //         <div className="flex items-center gap-2 text-blue-600">
+  //           <Loader2 className="w-4 h-4 animate-spin" />
+  //           Creating collection...
+  //         </div>
+  //       );
+  //     case "uploading":
+  //       return (
+  //         <div className="space-y-2">
+  //           <div className="flex items-center gap-2 text-blue-600">
+  //             <Loader2 className="w-4 h-4 animate-spin" />
+  //             Uploading {uploadProgress.currentAttribute}...
+  //           </div>
+  //           <div className="text-sm text-gray-500">
+  //             Progress: {uploadProgress.processedAttributes} of{" "}
+  //             {uploadProgress.totalAttributes} attributes
+  //           </div>
+  //           <div className="w-full bg-gray-200 rounded-full h-2">
+  //             <div
+  //               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+  //               style={{
+  //                 width: `${
+  //                   (uploadProgress.processedAttributes! /
+  //                     uploadProgress.totalAttributes!) *
+  //                   100
+  //                 }%`,
+  //               }}
+  //             />
+  //           </div>
+  //         </div>
+  //       );
+  //     case "processing":
+  //       return (
+  //         <div className="flex items-center gap-2 text-blue-600">
+  //           <Loader2 className="w-4 h-4 animate-spin" />
+  //           Processing attributes...
+  //         </div>
+  //       );
+  //     case "error":
+  //       return (
+  //         <div className="text-red-600">Error: {uploadProgress.error}</div>
+  //       );
+  //     default:
+  //       return null;
+  //   }
+  // };
 
   if (!isConnected || !address) {
     return null;
@@ -262,7 +282,9 @@ export default function NewCollection() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold">
-            {previewAttributes.length > 0 ? "SETUP COLLECTION" : "Create New Collection"}
+            {previewAttributes.length > 0
+              ? "SETUP COLLECTION"
+              : "Create New Collection"}
           </h1>
           {previewAttributes.length > 0 && (
             <p className="text-gray-500 mt-2">
@@ -273,12 +295,22 @@ export default function NewCollection() {
         {isUploading ? (
           <div className="flex items-center gap-2">
             <div className="text-sm text-purple-600">
-              Uploading assets {Math.round((uploadProgress.processedAttributes || 0) / (uploadProgress.totalAttributes || 1) * 100)}%
+              Uploading assets{" "}
+              {Math.round(
+                ((uploadProgress.processedAttributes || 0) /
+                  (uploadProgress.totalAttributes || 1)) *
+                  100
+              )}
+              %
             </div>
           </div>
         ) : (
-          collectionId && uploadProgress.status === 'done' && (
-            <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => router.push(`/collections/${collectionId}/layers`)}>
+          collectionId &&
+          uploadProgress.status === "done" && (
+            <Button
+              className="bg-purple-600 hover:bg-purple-700"
+              onClick={() => router.push(`/collections/${collectionId}/layers`)}
+            >
               Next →
             </Button>
           )
@@ -286,10 +318,20 @@ export default function NewCollection() {
       </div>
 
       <div className="space-y-8">
-        <div className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 ${previewAttributes.length > 0 ? 'border-gray-200' : 'border-gray-300'}`}>
-          <div className={`transition-all duration-300 ${previewAttributes.length > 0 ? 'scale-90' : 'scale-100'}`}>
+        <div
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 ${
+            previewAttributes.length > 0 ? "border-gray-200" : "border-gray-300"
+          }`}
+        >
+          <div
+            className={`transition-all duration-300 ${
+              previewAttributes.length > 0 ? "scale-90" : "scale-100"
+            }`}
+          >
             <div className="text-2xl font-semibold mb-2">
-              {previewAttributes.length > 0 ? 'Upload more assets' : 'Upload your collection folder'}
+              {previewAttributes.length > 0
+                ? "Upload more assets"
+                : "Upload your collection folder"}
             </div>
             <p className="text-gray-500 mb-4">
               <label className="text-blue-500 cursor-pointer hover:underline">
@@ -297,9 +339,8 @@ export default function NewCollection() {
                 <input
                   type="file"
                   className="hidden"
-                  // @ts-ignore
+                  // @ts-expect-error: `webkitdirectory` is not recognized by TypeScript on the input element
                   webkitdirectory=""
-                  // @ts-ignore
                   directory=""
                   onChange={handleFolderSelect}
                   accept="image/png,image/jpeg,image/svg+xml"
@@ -317,15 +358,17 @@ export default function NewCollection() {
               <div key={attribute.name} className="space-y-2">
                 <div className="flex items-center gap-2">
                   <h3 className="font-medium text-lg">{attribute.name}</h3>
-                  <span className="text-sm text-gray-500">{attribute.traits.length} traits</span>
+                  <span className="text-sm text-gray-500">
+                    {attribute.traits.length} traits
+                  </span>
                 </div>
                 <div className="overflow-x-auto pb-4">
-                  <div className="flex gap-4" style={{ minWidth: 'min-content' }}>
+                  <div
+                    className="flex gap-4"
+                    style={{ minWidth: "min-content" }}
+                  >
                     {attribute.traits.map((trait) => (
-                      <div 
-                        key={trait.name} 
-                        className="w-32 flex-shrink-0"
-                      >
+                      <div key={trait.name} className="w-32 flex-shrink-0">
                         <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-2">
                           <img
                             src={trait.base64}
@@ -347,4 +390,4 @@ export default function NewCollection() {
       </div>
     </div>
   );
-} 
+}

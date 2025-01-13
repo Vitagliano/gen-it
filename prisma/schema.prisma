@@ -37,7 +37,7 @@ model Collection {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   templates    Template[]
-  rules        TraitRule[]
+  traitRules   TraitRule[]
 }
 
 model Attribute {
@@ -54,16 +54,16 @@ model Attribute {
 
 model Trait {
   id           String       @id @default(auto()) @map("_id") @db.ObjectId
-  name         String       // Ex: "alien", "dress", "ruffles"
-  imagePath    String       // Caminho para o arquivo de imagem
-  rarity       Float        // Raridade em porcentagem ou peso
+  name         String       
+  imagePath    String       
+  rarity       Float        
   isEnabled    Boolean      @default(true)
   attribute    Attribute    @relation(fields: [attributeId], references: [id])
   attributeId  String       @db.ObjectId
   tokens       Token[]      @relation(fields: [tokenIds], references: [id])
   tokenIds     String[]     @db.ObjectId
-  rules        TraitRule[]  @relation("TraitRuleTraits", fields: [ruleIds], references: [id])
-  ruleIds      String[]     @db.ObjectId
+  traitRules   TraitRule[] @relation("TraitRuleTraits", fields: [traitRuleIds], references: [id])
+  traitRuleIds String[]     @db.ObjectId
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 }
@@ -106,10 +106,10 @@ model TemplateAttribute {
 
 model TraitRule {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
-  ruleType     String     // "EXCLUDE", "ONLY_TOGETHER", "ALWAYS_TOGETHER"
+  ruleType     String     
   traits       Trait[]    @relation("TraitRuleTraits", fields: [traitIds], references: [id])
   traitIds     String[]   @db.ObjectId
-  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection   Collection @relation(fields: [collectionId], references: [id])
   collectionId String     @db.ObjectId
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt

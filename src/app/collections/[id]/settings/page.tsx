@@ -1,15 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
-import { ArrowLeft } from "lucide-react";
-import Image from "next/image";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Card } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -19,6 +13,8 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface Collection {
   id: string;
@@ -47,7 +43,6 @@ interface Token {
 }
 
 export default function SettingsPage({ params }: { params: { id: string } }) {
-  const router = useRouter();
   const { address, isConnected } = useAccount();
   const [collection, setCollection] = useState<Collection | null>(null);
   const [unsavedChanges, setUnsavedChanges] = useState<Partial<Collection>>({});
@@ -178,7 +173,7 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
       <div className="mt-8">
         <h2 className="text-lg font-semibold">General</h2>
         <p className="text-muted-foreground">
-          Manage your collection's base settings.
+          Manage your collection&lsquo;s base settings.
         </p>
       </div>
 
@@ -188,7 +183,7 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
             <div>
               <Label htmlFor="name">Name</Label>
               <p className="text-sm text-muted-foreground">
-                Your Collection's name.
+                Your Collection&lsquo;s name.
               </p>
             </div>
             <Input
@@ -233,7 +228,11 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
                         src={`http://localhost:3000/${trait.imagePath}`}
                         alt={trait.name}
                         className={
-                          (typeof unsavedChanges.pixelated !== 'undefined' ? unsavedChanges.pixelated : collection.pixelated)
+                          (
+                            typeof unsavedChanges.pixelated !== "undefined"
+                              ? unsavedChanges.pixelated
+                              : collection.pixelated
+                          )
                             ? "object-contain w-full h-full image-rendering-pixelated"
                             : "object-contain w-full h-full"
                         }
@@ -353,7 +352,11 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
                         src={`http://localhost:3000/${trait.imagePath}`}
                         alt={trait.name}
                         className={
-                          (typeof unsavedChanges.pixelated !== 'undefined' ? unsavedChanges.pixelated : collection.pixelated)
+                          (
+                            typeof unsavedChanges.pixelated !== "undefined"
+                              ? unsavedChanges.pixelated
+                              : collection.pixelated
+                          )
                             ? "object-contain w-full h-full image-rendering-pixelated"
                             : "object-contain w-full h-full"
                         }

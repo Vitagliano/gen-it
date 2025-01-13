@@ -27,7 +27,7 @@ export async function GET(
         userId: user.id 
       },
       include: {
-        rules: {
+        traitRules: {
           include: {
             traits: true,
           },
@@ -39,7 +39,7 @@ export async function GET(
       return new NextResponse("Not found", { status: 404 })
     }
 
-    return NextResponse.json(collection.rules)
+    return NextResponse.json(collection.traitRules)
   } catch (error) {
     console.error("[RULES_GET]", error)
     return new NextResponse("Internal error", { status: 500 })

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -39,7 +38,6 @@ interface Collection {
 }
 
 export default function AttributesPage({ params }: { params: { id: string } }) {
-  const router = useRouter();
   const { address, isConnected } = useAccount();
   const { toast } = useToast();
   const [collection, setCollection] = useState<Collection | null>(null);
@@ -47,7 +45,9 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
   const [editedAttributes, setEditedAttributes] = useState<Attribute[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
-  const [rarityMode, setRarityMode] = useState<"percentage" | "weight">("percentage");
+  const [rarityMode, setRarityMode] = useState<"percentage" | "weight">(
+    "percentage"
+  );
 
   useEffect(() => {
     if (isConnected && address) {
@@ -64,7 +64,8 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     if (attributes.length > 0 && editedAttributes.length > 0) {
-      const hasChanges = JSON.stringify(attributes) !== JSON.stringify(editedAttributes);
+      const hasChanges =
+        JSON.stringify(attributes) !== JSON.stringify(editedAttributes);
       setHasChanges(hasChanges);
     }
   }, [attributes, editedAttributes]);
@@ -105,20 +106,26 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
     }
   };
 
-  const updateTraitRarities = (attributeId: string, traitId: string, newRarity: number) => {
-    setEditedAttributes(prev => 
-      prev.map(attr => {
+  const updateTraitRarities = (
+    attributeId: string,
+    traitId: string,
+    newRarity: number
+  ) => {
+    setEditedAttributes((prev) =>
+      prev.map((attr) => {
         if (attr.id !== attributeId) return attr;
 
         if (rarityMode === "percentage") {
           // Get all enabled traits except the current one
-          const otherEnabledTraits = attr.traits.filter(t => t.id !== traitId && t.isEnabled);
-          
+          const otherEnabledTraits = attr.traits.filter(
+            (t) => t.id !== traitId && t.isEnabled
+          );
+
           if (otherEnabledTraits.length === 0) {
             // If this is the only enabled trait, it should have 100% rarity
             return {
               ...attr,
-              traits: attr.traits.map(trait =>
+              traits: attr.traits.map((trait) =>
                 trait.id === traitId ? { ...trait, rarity: 100 } : trait
               ),
             };
@@ -126,16 +133,19 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
 
           // Calculate remaining rarity to distribute
           const remainingRarity = Math.max(0, 100 - newRarity);
-          
+
           // Calculate current total of other traits
-          const currentTotal = otherEnabledTraits.reduce((sum, t) => sum + t.rarity, 0);
-          
+          const currentTotal = otherEnabledTraits.reduce(
+            (sum, t) => sum + t.rarity,
+            0
+          );
+
           // If current total is 0, distribute remaining rarity equally
           const shouldDistributeEqually = currentTotal === 0;
 
           return {
             ...attr,
-            traits: attr.traits.map(trait => {
+            traits: attr.traits.map((trait) => {
               if (trait.id === traitId) {
                 return { ...trait, rarity: newRarity };
               }
@@ -160,7 +170,7 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
           // For weight mode, just update the single trait
           return {
             ...attr,
-            traits: attr.traits.map(trait =>
+            traits: attr.traits.map((trait) =>
               trait.id === traitId ? { ...trait, rarity: newRarity } : trait
             ),
           };
@@ -169,27 +179,33 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
     );
   };
 
-  const handleUpdateTraitRarity = (attributeId: string, traitId: string, newValue: number) => {
+  const handleUpdateTraitRarity = (
+    attributeId: string,
+    traitId: string,
+    newValue: number
+  ) => {
     const newRarity = Math.min(100, Math.max(0, newValue));
     updateTraitRarities(attributeId, traitId, newRarity);
   };
 
   const handleToggleTrait = (attributeId: string, traitId: string) => {
-    setEditedAttributes(prev => 
-      prev.map(attr => {
+    setEditedAttributes((prev) =>
+      prev.map((attr) => {
         if (attr.id !== attributeId) return attr;
 
-        const updatedTraits = attr.traits.map(trait =>
-          trait.id === traitId ? { ...trait, isEnabled: !trait.isEnabled } : trait
+        const updatedTraits = attr.traits.map((trait) =>
+          trait.id === traitId
+            ? { ...trait, isEnabled: !trait.isEnabled }
+            : trait
         );
 
         // Recalculate rarities for enabled traits
-        const enabledTraits = updatedTraits.filter(t => t.isEnabled);
+        const enabledTraits = updatedTraits.filter((t) => t.isEnabled);
         const equalRarity = 100 / enabledTraits.length;
 
         return {
           ...attr,
-          traits: updatedTraits.map(trait =>
+          traits: updatedTraits.map((trait) =>
             trait.isEnabled ? { ...trait, rarity: equalRarity } : trait
           ),
         };
@@ -200,9 +216,12 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
   const handleSaveChanges = async () => {
     try {
       // Find attributes with changed traits
-      const changedAttributes = editedAttributes.filter(editedAttr => {
-        const originalAttr = attributes.find(a => a.id === editedAttr.id);
-        return JSON.stringify(originalAttr?.traits) !== JSON.stringify(editedAttr.traits);
+      const changedAttributes = editedAttributes.filter((editedAttr) => {
+        const originalAttr = attributes.find((a) => a.id === editedAttr.id);
+        return (
+          JSON.stringify(originalAttr?.traits) !==
+          JSON.stringify(editedAttr.traits)
+        );
       });
 
       // Update each changed attribute's traits
@@ -234,10 +253,10 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
           },
           body: JSON.stringify({
             address,
-            attributes: editedAttributes.map(attr => ({
+            attributes: editedAttributes.map((attr) => ({
               id: attr.id,
               order: attr.order,
-              isEnabled: attr.traits.some(t => t.isEnabled),
+              isEnabled: attr.traits.some((t) => t.isEnabled),
             })),
           }),
         }
@@ -269,11 +288,12 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
     setHasChanges(false);
   };
 
-  const filteredAttributes = editedAttributes.filter(attribute =>
-    attribute.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    attribute.traits.some(trait =>
-      trait.name.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+  const filteredAttributes = editedAttributes.filter(
+    (attribute) =>
+      attribute.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      attribute.traits.some((trait) =>
+        trait.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
   );
 
   if (!isConnected || !address) {
@@ -286,7 +306,7 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
         <div>
           <h1 className="text-3xl font-bold mb-2">Attributes</h1>
           <p className="text-gray-600">
-            Manage your collection's attributes and their traits.{" "}
+            Manage your collection&lsquo;s attributes and their traits.{" "}
             <a href="#" className="text-primary hover:underline">
               Learn more
             </a>
@@ -295,9 +315,15 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
         <div className="flex items-center gap-4">
           <Button
             variant="outline"
-            onClick={() => setRarityMode(mode => mode === "percentage" ? "weight" : "percentage")}
+            onClick={() =>
+              setRarityMode((mode) =>
+                mode === "percentage" ? "weight" : "percentage"
+              )
+            }
           >
-            {rarityMode === "percentage" ? "Using Percentages (%)" : "Using Weights (#)"}
+            {rarityMode === "percentage"
+              ? "Using Percentages (%)"
+              : "Using Weights (#)"}
           </Button>
         </div>
       </div>
@@ -329,10 +355,7 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
             <div className="overflow-x-auto">
               <div className="flex gap-4 min-w-max pb-4">
                 {attribute.traits.map((trait) => (
-                  <div
-                    key={trait.id}
-                    className="border rounded-lg w-[200px]"
-                  >
+                  <div key={trait.id} className="border rounded-lg w-[200px]">
                     <div className="relative aspect-square bg-[#f5f5f5] bg-[linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee),linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee)] bg-[length:16px_16px] bg-[position:0_0,8px_8px]">
                       <img
                         src={`/${trait.imagePath}`}
@@ -346,7 +369,11 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
                       <div className="absolute top-2 right-2">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 bg-white/80 hover:bg-white">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 bg-white/80 hover:bg-white"
+                            >
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -356,12 +383,16 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
                                 <span>Enabled</span>
                                 <Switch
                                   checked={trait.isEnabled}
-                                  onCheckedChange={() => handleToggleTrait(attribute.id, trait.id)}
+                                  onCheckedChange={() =>
+                                    handleToggleTrait(attribute.id, trait.id)
+                                  }
                                 />
                               </div>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem>Show in metadata</DropdownMenuItem>
+                            <DropdownMenuItem>
+                              Show in metadata
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -369,7 +400,9 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
 
                     <div className="p-4">
                       <div className="flex items-center justify-between mb-4">
-                        <span className="font-medium text-sm">{trait.name}</span>
+                        <span className="font-medium text-sm">
+                          {trait.name}
+                        </span>
                       </div>
 
                       <div className="space-y-4">
@@ -377,7 +410,13 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
                           <>
                             <Slider
                               value={[trait.rarity]}
-                              onValueChange={([value]) => handleUpdateTraitRarity(attribute.id, trait.id, value)}
+                              onValueChange={([value]) =>
+                                handleUpdateTraitRarity(
+                                  attribute.id,
+                                  trait.id,
+                                  value
+                                )
+                              }
                               min={0}
                               max={100}
                               step={0.1}
@@ -392,13 +431,21 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
                             <Input
                               type="number"
                               value={trait.rarity}
-                              onChange={(e) => handleUpdateTraitRarity(attribute.id, trait.id, parseFloat(e.target.value))}
+                              onChange={(e) =>
+                                handleUpdateTraitRarity(
+                                  attribute.id,
+                                  trait.id,
+                                  parseFloat(e.target.value)
+                                )
+                              }
                               min={0}
                               step={1}
                               disabled={!trait.isEnabled}
                               className="w-20"
                             />
-                            <span className="text-sm text-gray-500">weight</span>
+                            <span className="text-sm text-gray-500">
+                              weight
+                            </span>
                           </div>
                         )}
                       </div>

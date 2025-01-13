@@ -3,12 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
-import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Search, ChevronDown, RefreshCw } from "lucide-react";
+import { ArrowLeft, Search, RefreshCw } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -273,30 +272,34 @@ export default function TokensPage({ params }: { params: { id: string } }) {
       return true;
     });
 
-  const generateTokenMetadata = (token: Token) => {
-    if (!collection) return null;
+  console.log(isLoading);
 
-    const tokenName = collection.tokenNamePattern
-      ? collection.tokenNamePattern
-          .replace("{collection}", collection.name || "Collection")
-          .replace("{id}", token.tokenNumber.toString())
-      : `${collection.name || "Collection"} #${token.tokenNumber}`;
+  // const generateTokenMetadata = (token: Token) => {
+  //   if (!collection) return null;
 
-    const metadata = {
-      name: tokenName,
-      description: collection.description || "",
-      image: "ipfs://<CID>",
-      attributes: token.traits.map(trait => {
-        const attribute = attributes.find(attr => attr.id === trait.attributeId);
-        return {
-          trait_type: attribute?.name || "",
-          value: trait.name
-        };
-      })
-    };
+  //   const tokenName = collection.tokenNamePattern
+  //     ? collection.tokenNamePattern
+  //         .replace("{collection}", collection.name || "Collection")
+  //         .replace("{id}", token.tokenNumber.toString())
+  //     : `${collection.name || "Collection"} #${token.tokenNumber}`;
 
-    return JSON.stringify(metadata, null, 2);
-  };
+  //   const metadata = {
+  //     name: tokenName,
+  //     description: collection.description || "",
+  //     image: "ipfs://<CID>",
+  //     attributes: token.traits.map((trait) => {
+  //       const attribute = attributes.find(
+  //         (attr) => attr.id === trait.attributeId
+  //       );
+  //       return {
+  //         trait_type: attribute?.name || "",
+  //         value: trait.name,
+  //       };
+  //     }),
+  //   };
+
+  //   return JSON.stringify(metadata, null, 2);
+  // };
 
   if (!isConnected || !address) {
     return null;
@@ -476,35 +479,42 @@ export default function TokensPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      <Dialog open={!!selectedToken} onOpenChange={(open) => !open && setSelectedToken(null)}>
+      <Dialog
+        open={!!selectedToken}
+        onOpenChange={(open) => !open && setSelectedToken(null)}
+      >
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Token #{selectedToken?.tokenNumber}</DialogTitle>
-            <DialogDescription>
-              Token details and properties
-            </DialogDescription>
+            <DialogDescription>Token details and properties</DialogDescription>
           </DialogHeader>
 
           <div className="grid grid-cols-2 gap-6">
             <div>
               <div className="relative aspect-square bg-checkerboard rounded-lg overflow-hidden">
-                {selectedToken?.traits.sort((a, b) => {
-                  const attrA = attributes.find((attr) => attr.id === a.attributeId);
-                  const attrB = attributes.find((attr) => attr.id === b.attributeId);
-                  return (attrA?.order || 0) - (attrB?.order || 0);
-                }).map((trait) => (
-                  <div key={trait.id} className="absolute inset-0">
-                    <img
-                      src={`http://localhost:3000/${trait.imagePath}`}
-                      alt={trait.name}
-                      className={
-                        collection?.pixelated
-                          ? "object-contain w-full h-full image-rendering-pixelated"
-                          : "object-contain w-full h-full"
-                      }
-                    />
-                  </div>
-                ))}
+                {selectedToken?.traits
+                  .sort((a, b) => {
+                    const attrA = attributes.find(
+                      (attr) => attr.id === a.attributeId
+                    );
+                    const attrB = attributes.find(
+                      (attr) => attr.id === b.attributeId
+                    );
+                    return (attrA?.order || 0) - (attrB?.order || 0);
+                  })
+                  .map((trait) => (
+                    <div key={trait.id} className="absolute inset-0">
+                      <img
+                        src={`http://localhost:3000/${trait.imagePath}`}
+                        alt={trait.name}
+                        className={
+                          collection?.pixelated
+                            ? "object-contain w-full h-full image-rendering-pixelated"
+                            : "object-contain w-full h-full"
+                        }
+                      />
+                    </div>
+                  ))}
               </div>
             </div>
 
@@ -512,16 +522,28 @@ export default function TokensPage({ params }: { params: { id: string } }) {
               <h3 className="text-sm font-medium mb-3">Properties</h3>
               <div className="space-y-2">
                 {selectedToken?.traits.map((trait) => {
-                  const attribute = attributes.find((attr) => attr.id === trait.attributeId);
+                  const attribute = attributes.find(
+                    (attr) => attr.id === trait.attributeId
+                  );
                   const tokenCount = getTraitTokenCount(trait.id);
-                  const percentage = ((tokenCount / tokens.length) * 100).toFixed(1);
+                  const percentage = (
+                    (tokenCount / tokens.length) *
+                    100
+                  ).toFixed(1);
 
                   return (
-                    <div key={trait.id} className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{attribute?.name}</span>
+                    <div
+                      key={trait.id}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <span className="text-muted-foreground">
+                        {attribute?.name}
+                      </span>
                       <div className="flex items-center gap-2">
                         <span>{trait.name}</span>
-                        <span className="text-xs text-muted-foreground">({percentage}%)</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({percentage}%)
+                        </span>
                       </div>
                     </div>
                   );

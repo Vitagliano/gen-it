@@ -1,14 +1,13 @@
-"use client"
+"use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { Search, X, MoreVertical, GripVertical } from "lucide-react";
+import { Search, MoreVertical, GripVertical } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,13 +22,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 interface Collection {
   id: string;
@@ -61,7 +53,6 @@ interface Template {
 }
 
 export default function TemplatesPage({ params }: { params: { id: string } }) {
-  const router = useRouter();
   const { address, isConnected } = useAccount();
   const { toast } = useToast();
   const [collection, setCollection] = useState<Collection | null>(null);
@@ -70,17 +61,23 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
   const [editedTemplates, setEditedTemplates] = useState<Template[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  // const [isEditing, setIsEditing] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
+    null
+  );
   const [newTemplateName, setNewTemplateName] = useState("");
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [rarityMode, setRarityMode] = useState<"percentage" | "weight">("percentage");
-  const [newTemplateAttributes, setNewTemplateAttributes] = useState<{
-    id: string;
-    enabled: boolean;
-    order: number;
-  }[]>([]);
+  const [rarityMode, setRarityMode] = useState<"percentage" | "weight">(
+    "percentage"
+  );
+  const [newTemplateAttributes, setNewTemplateAttributes] = useState<
+    {
+      id: string;
+      enabled: boolean;
+      order: number;
+    }[]
+  >([]);
   const [draggedItem, setDraggedItem] = useState<number | null>(null);
 
   useEffect(() => {
@@ -99,7 +96,8 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     if (templates.length > 0 && editedTemplates.length > 0) {
-      const hasChanges = JSON.stringify(templates) !== JSON.stringify(editedTemplates);
+      const hasChanges =
+        JSON.stringify(templates) !== JSON.stringify(editedTemplates);
       setHasChanges(hasChanges);
     }
   }, [templates, editedTemplates]);
@@ -171,27 +169,27 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
   };
 
   const updateTemplateRarities = (templateId: string, newRarity: number) => {
-    setEditedTemplates(prev => {
+    setEditedTemplates((prev) => {
       // Get all templates except the current one
-      const otherTemplates = prev.filter(t => t.id !== templateId);
-      
+      const otherTemplates = prev.filter((t) => t.id !== templateId);
+
       if (otherTemplates.length === 0) {
         // If this is the only template, it should have 100% rarity
-        return prev.map(t => 
+        return prev.map((t) =>
           t.id === templateId ? { ...t, rarity: 100 } : t
         );
       }
 
       // Calculate remaining rarity to distribute
       const remainingRarity = Math.max(0, 100 - newRarity);
-      
+
       // Calculate current total of other templates
       const currentTotal = otherTemplates.reduce((sum, t) => sum + t.rarity, 0);
-      
+
       // If current total is 0, distribute remaining rarity equally
       const shouldDistributeEqually = currentTotal === 0;
 
-      return prev.map(template => {
+      return prev.map((template) => {
         if (template.id === templateId) {
           return { ...template, rarity: newRarity };
         }
@@ -222,7 +220,7 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
     try {
       // Calculate initial rarity for the new template
       const equalRarity = 100 / (templates.length + 1);
-      
+
       const response = await fetch(
         `/api/collections/${params.id}/templates?address=${address}`,
         {
@@ -233,7 +231,7 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
           body: JSON.stringify({
             name: newTemplateName,
             rarity: equalRarity,
-            attributes: newTemplateAttributes.map(attr => ({
+            attributes: newTemplateAttributes.map((attr) => ({
               id: attr.id,
               enabled: attr.enabled,
             })),
@@ -244,13 +242,13 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
       if (!response.ok) throw new Error("Failed to create template");
 
       const newTemplate = await response.json();
-      
+
       // Update all templates with adjusted rarities
-      const updatedTemplates = [...templates, newTemplate].map(t => ({
+      const updatedTemplates = [...templates, newTemplate].map((t) => ({
         ...t,
         rarity: equalRarity,
       }));
-      
+
       setTemplates(updatedTemplates);
       setEditedTemplates(updatedTemplates);
       setIsCreating(false);
@@ -276,7 +274,7 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
     try {
       // Update each changed template
       for (const template of editedTemplates) {
-        const originalTemplate = templates.find(t => t.id === template.id);
+        const originalTemplate = templates.find((t) => t.id === template.id);
         if (JSON.stringify(originalTemplate) !== JSON.stringify(template)) {
           await fetch(
             `/api/collections/${params.id}/templates/${template.id}?address=${address}`,
@@ -320,7 +318,7 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
           },
           body: JSON.stringify({
             address,
-            attributes: attributes.map(attr => ({
+            attributes: attributes.map((attr) => ({
               id: attr.id,
               order: attr.order,
               isEnabled: true,
@@ -364,18 +362,18 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
       if (!response.ok) throw new Error("Failed to delete template");
 
       // Remove the template from state
-      const updatedTemplates = templates.filter(t => t.id !== template.id);
-      
+      const updatedTemplates = templates.filter((t) => t.id !== template.id);
+
       // Recalculate rarities for remaining templates
       const equalRarity = 100 / updatedTemplates.length;
-      const templatesWithUpdatedRarities = updatedTemplates.map(t => ({
+      const templatesWithUpdatedRarities = updatedTemplates.map((t) => ({
         ...t,
         rarity: equalRarity,
       }));
 
       // Update all remaining templates with new rarities
       await Promise.all(
-        templatesWithUpdatedRarities.map(template =>
+        templatesWithUpdatedRarities.map((template) =>
           fetch(
             `/api/collections/${params.id}/templates/${template.id}?address=${address}`,
             {
@@ -407,29 +405,32 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
     }
   };
 
-  const filteredTemplates = editedTemplates.filter(template =>
+  const filteredTemplates = editedTemplates.filter((template) =>
     template.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+  const handleDragStart = (
+    e: React.DragEvent<HTMLDivElement>,
+    index: number
+  ) => {
     setDraggedItem(index);
-    e.currentTarget.classList.add('opacity-50');
-    e.dataTransfer.effectAllowed = 'move';
+    e.currentTarget.classList.add("opacity-50");
+    e.dataTransfer.effectAllowed = "move";
   };
 
   const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-    e.currentTarget.classList.remove('opacity-50');
+    e.currentTarget.classList.remove("opacity-50");
     setDraggedItem(null);
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = "move";
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     e.preventDefault();
-    
+
     if (draggedItem === null) return;
 
     if (isCreating) {
@@ -447,9 +448,11 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
     } else if (selectedTemplate) {
       const orderedAttributes = attributes
         .sort((a, b) => a.order - b.order)
-        .map(attr => ({
+        .map((attr) => ({
           ...attr,
-          enabled: selectedTemplate.attributes.find(ta => ta.id === attr.id)?.enabled ?? false
+          enabled:
+            selectedTemplate.attributes.find((ta) => ta.id === attr.id)
+              ?.enabled ?? false,
         }));
 
       const items = Array.from(orderedAttributes);
@@ -467,14 +470,16 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
 
       // Update the template attributes to maintain enabled states
       if (selectedTemplate) {
-        setEditedTemplates(prev =>
-          prev.map(t =>
+        setEditedTemplates((prev) =>
+          prev.map((t) =>
             t.id === selectedTemplate.id
               ? {
                   ...t,
-                  attributes: updatedItems.map(attr => ({
+                  attributes: updatedItems.map((attr) => ({
                     id: attr.id,
-                    enabled: t.attributes.find(ta => ta.id === attr.id)?.enabled ?? false,
+                    enabled:
+                      t.attributes.find((ta) => ta.id === attr.id)?.enabled ??
+                      false,
                   })),
                 }
               : t
@@ -505,9 +510,15 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
         <div className="flex items-center gap-4">
           <Button
             variant="outline"
-            onClick={() => setRarityMode(mode => mode === "percentage" ? "weight" : "percentage")}
+            onClick={() =>
+              setRarityMode((mode) =>
+                mode === "percentage" ? "weight" : "percentage"
+              )
+            }
           >
-            {rarityMode === "percentage" ? "Using Percentages (%)" : "Using Weights (#)"}
+            {rarityMode === "percentage"
+              ? "Using Percentages (%)"
+              : "Using Weights (#)"}
           </Button>
           <Button onClick={() => setIsCreating(true)}>Create Template</Button>
         </div>
@@ -530,37 +541,44 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
           <div key={template.id} className="border rounded-lg overflow-hidden">
             <div className="relative aspect-square bg-[#f5f5f5] bg-[linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee),linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee)] bg-[length:16px_16px] bg-[position:0_0,8px_8px]">
               {attributes
-                .filter(attr => {
+                .filter((attr) => {
                   const templateAttribute = template.attributes.find(
-                    a => a.id === attr.id
+                    (a) => a.id === attr.id
                   );
                   return templateAttribute?.enabled;
                 })
                 .sort((a, b) => a.order - b.order)
-                .map((attribute) => (
-                  attribute.traits[0] && (
-                    <div key={attribute.id} className="absolute inset-0">
-                      <img
-                        src={`/${attribute.traits[0].imagePath}`}
-                        alt={attribute.name}
-                        className={
-                          collection?.pixelated
-                            ? "object-contain w-full h-full image-rendering-pixelated"
-                            : "object-contain w-full h-full"
-                        }
-                      />
-                    </div>
-                  )
-                ))}
+                .map(
+                  (attribute) =>
+                    attribute.traits[0] && (
+                      <div key={attribute.id} className="absolute inset-0">
+                        <img
+                          src={`/${attribute.traits[0].imagePath}`}
+                          alt={attribute.name}
+                          className={
+                            collection?.pixelated
+                              ? "object-contain w-full h-full image-rendering-pixelated"
+                              : "object-contain w-full h-full"
+                          }
+                        />
+                      </div>
+                    )
+                )}
               <div className="absolute top-2 right-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 bg-white/80 hover:bg-white">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 bg-white/80 hover:bg-white"
+                    >
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setSelectedTemplate(template)}>
+                    <DropdownMenuItem
+                      onClick={() => setSelectedTemplate(template)}
+                    >
                       Edit attributes
                     </DropdownMenuItem>
                     <DropdownMenuItem
@@ -584,7 +602,9 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
                   <>
                     <Slider
                       value={[template.rarity]}
-                      onValueChange={([value]) => handleUpdateTemplateRarity(template.id, value)}
+                      onValueChange={([value]) =>
+                        handleUpdateTemplateRarity(template.id, value)
+                      }
                       min={0}
                       max={100}
                       step={0.1}
@@ -600,7 +620,12 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
                       variant="outline"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => handleUpdateTemplateRarity(template.id, Math.max(0, template.rarity - 1))}
+                      onClick={() =>
+                        handleUpdateTemplateRarity(
+                          template.id,
+                          Math.max(0, template.rarity - 1)
+                        )
+                      }
                     >
                       #
                     </Button>
@@ -608,7 +633,12 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
                       variant="outline"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => handleUpdateTemplateRarity(template.id, Math.min(100, template.rarity + 1))}
+                      onClick={() =>
+                        handleUpdateTemplateRarity(
+                          template.id,
+                          Math.min(100, template.rarity + 1)
+                        )
+                      }
                     >
                       %
                     </Button>
@@ -643,16 +673,16 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Attributes
-                </label>
+                <label className="text-sm font-medium">Attributes</label>
                 <div className="space-y-2">
                   {newTemplateAttributes
                     .sort((a, b) => a.order - b.order)
                     .map((templateAttr, index) => {
-                      const attribute = attributes.find(a => a.id === templateAttr.id);
+                      const attribute = attributes.find(
+                        (a) => a.id === templateAttr.id
+                      );
                       if (!attribute) return null;
-                      
+
                       return (
                         <div
                           key={attribute.id}
@@ -678,13 +708,15 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
                                 />
                               )}
                             </div>
-                            <span className="font-medium">{attribute.name}</span>
+                            <span className="font-medium">
+                              {attribute.name}
+                            </span>
                           </div>
                           <Switch
                             checked={templateAttr.enabled}
                             onCheckedChange={(checked) => {
-                              setNewTemplateAttributes(prev =>
-                                prev.map(a =>
+                              setNewTemplateAttributes((prev) =>
+                                prev.map((a) =>
                                   a.id === templateAttr.id
                                     ? { ...a, enabled: checked }
                                     : a
@@ -702,14 +734,19 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
             <div>
               <div className="relative aspect-square bg-[#f5f5f5] bg-[linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee),linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee)] bg-[length:16px_16px] bg-[position:0_0,8px_8px] rounded-lg overflow-hidden">
                 {newTemplateAttributes
-                  .filter(templateAttr => templateAttr.enabled)
+                  .filter((templateAttr) => templateAttr.enabled)
                   .sort((a, b) => a.order - b.order)
-                  .map(templateAttr => {
-                    const attribute = attributes.find(a => a.id === templateAttr.id);
+                  .map((templateAttr) => {
+                    const attribute = attributes.find(
+                      (a) => a.id === templateAttr.id
+                    );
                     if (!attribute?.traits[0]) return null;
-                    
+
                     return (
-                      <div key={attribute.id} className="absolute inset-0 w-full h-full">
+                      <div
+                        key={attribute.id}
+                        className="absolute inset-0 w-full h-full"
+                      >
                         <img
                           src={`/${attribute.traits[0].imagePath}`}
                           alt={attribute.name}
@@ -718,7 +755,13 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
                               ? "object-contain image-rendering-pixelated"
                               : "object-contain"
                           }`}
-                          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                          }}
                         />
                       </div>
                     );
@@ -727,11 +770,14 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setIsCreating(false);
-              setNewTemplateName("");
-              setNewTemplateAttributes([]);
-            }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCreating(false);
+                setNewTemplateName("");
+                setNewTemplateAttributes([]);
+              }}
+            >
               Cancel
             </Button>
             <Button onClick={handleCreateTemplate}>Create</Button>
@@ -739,7 +785,10 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!selectedTemplate} onOpenChange={(open) => !open && setSelectedTemplate(null)}>
+      <Dialog
+        open={!!selectedTemplate}
+        onOpenChange={(open) => !open && setSelectedTemplate(null)}
+      >
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>Edit Template</DialogTitle>
@@ -758,8 +807,8 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
                   value={selectedTemplate?.name || ""}
                   onChange={(e) => {
                     if (!selectedTemplate) return;
-                    setEditedTemplates(prev =>
-                      prev.map(t =>
+                    setEditedTemplates((prev) =>
+                      prev.map((t) =>
                         t.id === selectedTemplate.id
                           ? { ...t, name: e.target.value }
                           : t
@@ -771,16 +820,15 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Attributes
-                </label>
+                <label className="text-sm font-medium">Attributes</label>
                 <div className="space-y-2">
                   {attributes
                     .sort((a, b) => a.order - b.order)
                     .map((attribute, index) => {
-                      const templateAttribute = selectedTemplate?.attributes.find(
-                        ta => ta.id === attribute.id
-                      );
+                      const templateAttribute =
+                        selectedTemplate?.attributes.find(
+                          (ta) => ta.id === attribute.id
+                        );
                       return (
                         <div
                           key={attribute.id}
@@ -806,18 +854,20 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
                                 />
                               )}
                             </div>
-                            <span className="font-medium">{attribute.name}</span>
+                            <span className="font-medium">
+                              {attribute.name}
+                            </span>
                           </div>
                           <Switch
                             checked={templateAttribute?.enabled ?? false}
                             onCheckedChange={(checked) => {
                               if (!selectedTemplate) return;
-                              setEditedTemplates(prev =>
-                                prev.map(t =>
+                              setEditedTemplates((prev) =>
+                                prev.map((t) =>
                                   t.id === selectedTemplate.id
                                     ? {
                                         ...t,
-                                        attributes: t.attributes.map(a =>
+                                        attributes: t.attributes.map((a) =>
                                           a.id === attribute.id
                                             ? { ...a, enabled: checked }
                                             : a
@@ -837,31 +887,42 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
 
             <div>
               <div className="relative aspect-square bg-[#f5f5f5] bg-[linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee),linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee)] bg-[length:16px_16px] bg-[position:0_0,8px_8px] rounded-lg overflow-hidden">
-                {selectedTemplate && attributes
-                  .filter(attr => {
-                    const templateAttribute = selectedTemplate.attributes.find(
-                      ta => ta.id === attr.id
-                    );
-                    return templateAttribute?.enabled;
-                  })
-                  .sort((a, b) => a.order - b.order)
-                  .map(attribute => {
-                    if (!attribute.traits[0]) return null;
-                    return (
-                      <div key={attribute.id} className="absolute inset-0 w-full h-full">
-                        <img
-                          src={`/${attribute.traits[0].imagePath}`}
-                          alt={attribute.name}
-                          className={`w-full h-full ${
-                            collection?.pixelated
-                              ? "object-contain image-rendering-pixelated"
-                              : "object-contain"
-                          }`}
-                          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-                        />
-                      </div>
-                    );
-                  })}
+                {selectedTemplate &&
+                  attributes
+                    .filter((attr) => {
+                      const templateAttribute =
+                        selectedTemplate.attributes.find(
+                          (ta) => ta.id === attr.id
+                        );
+                      return templateAttribute?.enabled;
+                    })
+                    .sort((a, b) => a.order - b.order)
+                    .map((attribute) => {
+                      if (!attribute.traits[0]) return null;
+                      return (
+                        <div
+                          key={attribute.id}
+                          className="absolute inset-0 w-full h-full"
+                        >
+                          <img
+                            src={`/${attribute.traits[0].imagePath}`}
+                            alt={attribute.name}
+                            className={`w-full h-full ${
+                              collection?.pixelated
+                                ? "object-contain image-rendering-pixelated"
+                                : "object-contain"
+                            }`}
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
               </div>
             </div>
           </div>
@@ -869,31 +930,38 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
             <Button variant="outline" onClick={() => setSelectedTemplate(null)}>
               Cancel
             </Button>
-            <Button onClick={() => {
-              setSelectedTemplate(null);
-              setHasChanges(true);
-            }}>
+            <Button
+              onClick={() => {
+                setSelectedTemplate(null);
+                setHasChanges(true);
+              }}
+            >
               Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
+      <Dialog
+        open={showRegenerateDialog}
+        onOpenChange={setShowRegenerateDialog}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Regenerate Tokens</DialogTitle>
             <DialogDescription>
-              The template settings have changed. Would you like to regenerate the collection tokens with the updated templates?
+              The template settings have changed. Would you like to regenerate
+              the collection tokens with the updated templates?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRegenerateDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowRegenerateDialog(false)}
+            >
               Later
             </Button>
-            <Button onClick={handleRegenerateTokens}>
-              Regenerate Now
-            </Button>
+            <Button onClick={handleRegenerateTokens}>Regenerate Now</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -907,12 +975,10 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
             <Button variant="outline" onClick={handleDiscard}>
               Discard Changes
             </Button>
-            <Button onClick={handleSaveChanges}>
-              Save Changes
-            </Button>
+            <Button onClick={handleSaveChanges}>Save Changes</Button>
           </div>
         </div>
       )}
     </div>
   );
-} 
+}

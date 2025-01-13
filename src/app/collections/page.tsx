@@ -36,8 +36,11 @@ export default function CollectionsPage() {
   const { toast } = useToast();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [collectionToDelete, setCollectionToDelete] = useState<Collection | null>(null);
+  const [collectionToDelete, setCollectionToDelete] =
+    useState<Collection | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  console.log("isLoading", isLoading);
 
   useEffect(() => {
     if (isConnected && address) {
@@ -164,12 +167,17 @@ export default function CollectionsPage() {
         ))}
       </div>
 
-      <Dialog open={!!collectionToDelete} onOpenChange={(open) => !open && setCollectionToDelete(null)}>
+      <Dialog
+        open={!!collectionToDelete}
+        onOpenChange={(open) => !open && setCollectionToDelete(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Collection</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &quot;{collectionToDelete?.name}&quot;? This action is irreversible and will delete all related data including attributes, traits, and generated tokens.
+              Are you sure you want to delete &quot;{collectionToDelete?.name}
+              &quot;? This action is irreversible and will delete all related
+              data including attributes, traits, and generated tokens.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -192,4 +200,4 @@ export default function CollectionsPage() {
       </Dialog>
     </div>
   );
-} 
+}

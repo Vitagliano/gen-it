@@ -1,29 +1,40 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-function weightedRandom(traits: { id: string; rarity: number }[]) {
+interface Trait {
+  id: string;
+  rarity: number;
+}
+
+interface Attribute {
+  id: string;
+  name: string;
+  traits: Trait[];
+}
+
+function weightedRandom(traits: Trait[]) {
   const totalWeight = traits.reduce((acc, trait) => acc + trait.rarity, 0);
   let random = Math.random() * totalWeight;
-  
+
   for (const trait of traits) {
     random -= trait.rarity;
     if (random <= 0) {
       return trait.id;
     }
   }
-  
+
   return traits[0].id;
 }
 
 function getUniqueCombination(
-  attributes: any[],
+  attributes: Attribute[],
   existingCombinations: Set<string>
 ): string[] | null {
   let attempts = 0;
   const maxAttempts = 100; // Prevent infinite loops
 
   while (attempts < maxAttempts) {
-    const selectedTraits = attributes.map(attribute => {
+    const selectedTraits = attributes.map((attribute) => {
       return weightedRandom(attribute.traits);
     });
 
@@ -97,7 +108,9 @@ export async function POST(
 
     if (tokenAmount > maxCombinations) {
       return NextResponse.json(
-        { error: `Cannot generate more than ${maxCombinations} unique combinations` },
+        {
+          error: `Cannot generate more than ${maxCombinations} unique combinations`,
+        },
         { status: 400 }
       );
     }
@@ -116,9 +129,9 @@ export async function POST(
     // If increasing token amount, generate new tokens
     else if (tokenAmount > collection.tokens.length) {
       const existingCombinations = new Set(
-        collection.tokens.map(token => 
+        collection.tokens.map((token) =>
           token.traits
-            .map(trait => trait.id)
+            .map((trait) => trait.id)
             .sort()
             .join(",")
         )
@@ -177,4 +190,4 @@ export async function POST(
       { status: 500 }
     );
   }
-} 
+}

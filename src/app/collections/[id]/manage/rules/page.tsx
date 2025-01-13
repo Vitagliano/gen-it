@@ -21,8 +21,6 @@ import { Attribute, Trait } from "@prisma/client";
 import { Loader2, Search, MoreHorizontal } from "lucide-react";
 import { useAccount } from "wagmi";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-
 type RuleType = "EXCLUDE" | "ONLY_TOGETHER" | "ALWAYS_TOGETHER";
 
 interface TraitRule {
@@ -204,105 +202,118 @@ export default function RulesPage({ params }: { params: { id: string } }) {
 
   const renderTraitList = (isFirstSelection: boolean = false) => {
     // Get the attribute ID of the first selection if it exists
-    const firstSelectionAttributeId = !isFirstSelection && firstSelection?.type === 'trait'
-      ? traits.find(t => t.id === firstSelection.id)?.attributeId
-      : firstSelection?.type === 'attribute'
-      ? firstSelection.id
-      : null;
+    const firstSelectionAttributeId =
+      !isFirstSelection && firstSelection?.type === "trait"
+        ? traits.find((t) => t.id === firstSelection.id)?.attributeId
+        : firstSelection?.type === "attribute"
+        ? firstSelection.id
+        : null;
 
-    const filteredAttributes = Object.entries(traitsByAttribute).filter(([_, { attribute }]) => {
-      return attribute.name.toLowerCase().includes(searchQuery.toLowerCase());
-    });
+    const filteredAttributes = Object.entries(traitsByAttribute).filter(
+      ([, { attribute }]: [string, { attribute: Attribute }]) => {
+        return attribute.name.toLowerCase().includes(searchQuery.toLowerCase());
+      }
+    );
 
     return (
       <div className="space-y-4">
-        {filteredAttributes.map(([attributeId, { count, traits, attribute }]) => {
-          const isAttributeDisabled = !isFirstSelection && attributeId === firstSelectionAttributeId;
+        {filteredAttributes.map(
+          ([attributeId, { count, traits, attribute }]) => {
+            const isAttributeDisabled =
+              !isFirstSelection && attributeId === firstSelectionAttributeId;
 
-          return (
-            <div key={attributeId} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      if (isAttributeDisabled) return;
-                      const selection = {
-                        type: "attribute" as const,
-                        id: attributeId,
-                      };
-                      if (isFirstSelection) {
-                        setFirstSelection(selection);
-                      } else {
-                        setSecondSelection((prev) =>
-                          prev.some((s) => s.id === attributeId)
-                            ? prev.filter((s) => s.id !== attributeId)
-                            : [...prev, selection]
-                        );
-                      }
-                    }}
-                    className={`text-sm font-medium hover:underline cursor-pointer ${
-                      isAttributeDisabled ? 'opacity-50 cursor-not-allowed hover:no-underline' : ''
-                    }`}
-                  >
-                    {attribute.name}
-                  </button>
-                  <span className="text-muted-foreground text-sm">
-                    {count} traits
-                  </span>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  disabled={isAttributeDisabled}
-                  className={isAttributeDisabled ? 'opacity-50' : ''}
-                >
-                  Select All
-                </Button>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {traits.map((trait) => (
-                  <div
-                    key={trait.id}
-                    onClick={() => {
-                      if (isAttributeDisabled) return;
-                      const selection = {
-                        type: "trait" as const,
-                        id: trait.id,
-                      };
-                      if (isFirstSelection) {
-                        setFirstSelection(selection);
-                      } else {
-                        setSecondSelection((prev) =>
-                          prev.some((s) => s.id === trait.id)
-                            ? prev.filter((s) => s.id !== trait.id)
-                            : [...prev, selection]
-                        );
-                      }
-                    }}
-                    className={`p-2 border rounded-lg cursor-pointer hover:bg-accent ${
-                      (isFirstSelection && firstSelection?.id === trait.id) ||
-                      (!isFirstSelection && secondSelection.some((s) => s.id === trait.id))
-                        ? "border-primary bg-primary/10"
-                        : ""
-                    } ${isAttributeDisabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`}
-                  >
-                    {trait.imagePath && (
-                      <img
-                        src={`/${trait.imagePath}`}
-                        alt={trait.name}
-                        className="aspect-square rounded object-cover mb-2"
-                      />
-                    )}
-                    {!trait.imagePath && (
-                      <div className="aspect-square rounded bg-background mb-2" />
-                    )}
-                    <div className="text-xs truncate">{trait.name}</div>
+            return (
+              <div key={attributeId} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        if (isAttributeDisabled) return;
+                        const selection = {
+                          type: "attribute" as const,
+                          id: attributeId,
+                        };
+                        if (isFirstSelection) {
+                          setFirstSelection(selection);
+                        } else {
+                          setSecondSelection((prev) =>
+                            prev.some((s) => s.id === attributeId)
+                              ? prev.filter((s) => s.id !== attributeId)
+                              : [...prev, selection]
+                          );
+                        }
+                      }}
+                      className={`text-sm font-medium hover:underline cursor-pointer ${
+                        isAttributeDisabled
+                          ? "opacity-50 cursor-not-allowed hover:no-underline"
+                          : ""
+                      }`}
+                    >
+                      {attribute.name}
+                    </button>
+                    <span className="text-muted-foreground text-sm">
+                      {count} traits
+                    </span>
                   </div>
-                ))}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={isAttributeDisabled}
+                    className={isAttributeDisabled ? "opacity-50" : ""}
+                  >
+                    Select All
+                  </Button>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {traits.map((trait) => (
+                    <div
+                      key={trait.id}
+                      onClick={() => {
+                        if (isAttributeDisabled) return;
+                        const selection = {
+                          type: "trait" as const,
+                          id: trait.id,
+                        };
+                        if (isFirstSelection) {
+                          setFirstSelection(selection);
+                        } else {
+                          setSecondSelection((prev) =>
+                            prev.some((s) => s.id === trait.id)
+                              ? prev.filter((s) => s.id !== trait.id)
+                              : [...prev, selection]
+                          );
+                        }
+                      }}
+                      className={`p-2 border rounded-lg cursor-pointer hover:bg-accent ${
+                        (isFirstSelection && firstSelection?.id === trait.id) ||
+                        (!isFirstSelection &&
+                          secondSelection.some((s) => s.id === trait.id))
+                          ? "border-primary bg-primary/10"
+                          : ""
+                      } ${
+                        isAttributeDisabled
+                          ? "opacity-50 cursor-not-allowed hover:bg-transparent"
+                          : ""
+                      }`}
+                    >
+                      {trait.imagePath && (
+                        <img
+                          src={`/${trait.imagePath}`}
+                          alt={trait.name}
+                          className="aspect-square rounded object-cover mb-2"
+                        />
+                      )}
+                      {!trait.imagePath && (
+                        <div className="aspect-square rounded bg-background mb-2" />
+                      )}
+                      <div className="text-xs truncate">{trait.name}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          }
+        )}
       </div>
     );
   };
