@@ -37,6 +37,7 @@ model Collection {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   templates    Template[]
+  rules        TraitRule[]
 }
 
 model Attribute {
@@ -61,6 +62,8 @@ model Trait {
   attributeId  String       @db.ObjectId
   tokens       Token[]      @relation(fields: [tokenIds], references: [id])
   tokenIds     String[]     @db.ObjectId
+  rules        TraitRule[]  @relation("TraitRuleTraits", fields: [ruleIds], references: [id])
+  ruleIds      String[]     @db.ObjectId
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 }
@@ -99,4 +102,15 @@ model TemplateAttribute {
   attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
 
   @@unique([templateId, attributeId])
+}
+
+model TraitRule {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  ruleType     String     // "EXCLUDE", "ONLY_TOGETHER", "ALWAYS_TOGETHER"
+  traits       Trait[]    @relation("TraitRuleTraits", fields: [traitIds], references: [id])
+  traitIds     String[]   @db.ObjectId
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collectionId String     @db.ObjectId
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 }
