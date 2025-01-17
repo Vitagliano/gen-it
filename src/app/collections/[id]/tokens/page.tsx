@@ -24,6 +24,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 
 interface Trait {
   id: string;
@@ -61,6 +62,42 @@ interface Collection {
   tokenNamePattern: string;
 }
 
+const SelectionBar = ({
+  selectedCount,
+  onClear,
+  onRegenerateSelected,
+  onSelectAll,
+  isAllSelected,
+}: {
+  selectedCount: number;
+  onClear: () => void;
+  onRegenerateSelected: () => void;
+  onSelectAll: () => void;
+  isAllSelected: boolean;
+}) => {
+  return (
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-900 rounded-lg shadow-lg border p-4 flex items-center gap-4 z-50">
+      <span className="font-medium">{selectedCount} Selected</span>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={onSelectAll}>
+          {isAllSelected ? "Deselect All" : "Select All"}
+        </Button>
+        <Button variant="ghost" onClick={onClear}>
+          Cancel
+        </Button>
+        <Button
+          variant="default"
+          onClick={onRegenerateSelected}
+          className="gap-2"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Regenerate Selection
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 export default function TokensPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { address, isConnected } = useAccount();
@@ -83,6 +120,8 @@ export default function TokensPage({ params }: { params: { id: string } }) {
   const pageSize = 20; // Number of tokens to load per page
   const loadMoreRef = useRef(null);
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedTokens, setSelectedTokens] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (isConnected && address) {
@@ -385,6 +424,64 @@ export default function TokensPage({ params }: { params: { id: string } }) {
     </div>
   );
 
+  const handleTokenSelect = (tokenNumber: number) => {
+    const newSelected = new Set(selectedTokens);
+    if (newSelected.has(tokenNumber)) {
+      newSelected.delete(tokenNumber);
+    } else {
+      newSelected.add(tokenNumber);
+    }
+    setSelectedTokens(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedTokens.size === filteredTokens.length) {
+      setSelectedTokens(new Set());
+    } else {
+      setSelectedTokens(new Set(filteredTokens.map((t) => t.tokenNumber)));
+    }
+  };
+
+  const handleRegenerateSelected = async () => {
+    try {
+      setIsRegenerating(true);
+      const response = await fetch(
+        `/api/collections/${params.id}/tokens/regenerate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            address,
+            tokenNumbers: Array.from(selectedTokens),
+          }),
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to regenerate tokens");
+
+      toast({
+        title: "Success",
+        description: "Selected tokens regenerated successfully",
+      });
+
+      // Reset selection and refresh tokens
+      setSelectedTokens(new Set());
+      setSelectMode(false);
+      await fetchTokens();
+    } catch (error) {
+      console.error("Error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to regenerate tokens",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
   if (!isConnected || !address) {
     return null;
   }
@@ -521,8 +618,8 @@ export default function TokensPage({ params }: { params: { id: string } }) {
 
         {/* Tokens Grid */}
         <div className="md:col-span-3">
-          <div className="mb-6">
-            <div className="relative">
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
                 placeholder="Search by token #, attribute or trait name..."
@@ -531,14 +628,32 @@ export default function TokensPage({ params }: { params: { id: string } }) {
                 className="pl-10"
               />
             </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={selectMode}
+                onCheckedChange={setSelectMode}
+                aria-label="Select tokens"
+              />
+              <span className="text-sm">Select Tokens</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredTokens.map((token) => (
               <div
                 key={token.tokenNumber}
-                className="relative aspect-square border rounded-lg overflow-hidden bg-[#f5f5f5] group hover:border-primary transition-colors cursor-pointer"
-                onClick={() => setSelectedToken(token)}
+                className={`relative aspect-square border rounded-lg overflow-hidden bg-[#f5f5f5] group hover:border-primary transition-colors cursor-pointer ${
+                  selectMode && selectedTokens.has(token.tokenNumber)
+                    ? "ring-2 ring-primary"
+                    : ""
+                }`}
+                onClick={() => {
+                  if (selectMode) {
+                    handleTokenSelect(token.tokenNumber);
+                  } else {
+                    setSelectedToken(token);
+                  }
+                }}
               >
                 {token.traits
                   .sort((a, b) => {
@@ -707,6 +822,19 @@ export default function TokensPage({ params }: { params: { id: string } }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {selectMode && (
+        <SelectionBar
+          selectedCount={selectedTokens.size}
+          onClear={() => {
+            setSelectMode(false);
+            setSelectedTokens(new Set());
+          }}
+          onRegenerateSelected={handleRegenerateSelected}
+          onSelectAll={handleSelectAll}
+          isAllSelected={selectedTokens.size === filteredTokens.length}
+        />
+      )}
     </div>
   );
 }
