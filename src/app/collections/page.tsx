@@ -20,6 +20,7 @@ interface Collection {
   name: string;
   description: string | null;
   tokenAmount: number;
+  seed: string | null;
   dimensions: {
     width: number;
     height: number;
@@ -67,7 +68,7 @@ export default function CollectionsPage() {
 
   const handleCollectionClick = (collection: Collection) => {
     // If collection has tokens, go to tokens page, otherwise go to layers page
-    if (collection._count?.tokens && collection._count.tokens > 0) {
+    if (collection.seed && collection.seed.length > 0) {
       router.push(`/collections/${collection.id}/tokens`);
     } else {
       router.push(`/collections/${collection.id}/layers`);

@@ -30,6 +30,7 @@ model Collection {
   format       String       // "svg", "jpg", "png"
   pixelated    Boolean      @default(false)
   startAtZero  Boolean      @default(false)
+  seed         String?      // Seed for deterministic token generation
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId       String       @db.ObjectId
   attributes   Attribute[]

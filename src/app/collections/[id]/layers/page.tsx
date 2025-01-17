@@ -92,13 +92,42 @@ export default function LayersPage({ params }: { params: { id: string } }) {
     setDraggedItem(index);
   };
 
-  const handleDragEnd = () => {
+  const handleDragEnd = async () => {
+    if (draggedItem !== null) {
+      try {
+        // Update the order in the database for each attribute
+        await Promise.all(
+          attributes.map(async (attr) => {
+            const response = await fetch(
+              `/api/collections/${params.id}/attributes/${attr.id}?address=${address}`,
+              {
+                method: "PATCH",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  order: attr.order,
+                }),
+              }
+            );
+            if (!response.ok) throw new Error("Failed to update attribute order");
+          })
+        );
+      } catch (error) {
+        console.error("Error:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update layer order",
+          variant: "destructive",
+        });
+      }
+    }
     setDraggedItem(null);
   };
 
   const handleGenerateTokens = async () => {
     try {
-      // Create default template first
+      // Create default template
       const templateResponse = await fetch(`/api/collections/${params.id}/templates?address=${address}`, {
         method: "POST",
         headers: {
@@ -119,30 +148,9 @@ export default function LayersPage({ params }: { params: { id: string } }) {
         throw new Error(error.error || "Failed to create template");
       }
 
-      // Then generate tokens
-      const response = await fetch(`/api/collections/${params.id}/tokens`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          address,
-          attributes: attributes.map(attr => ({
-            id: attr.id,
-            isEnabled: attr.isEnabled,
-            order: attr.order,
-          })),
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to generate tokens");
-      }
-
       toast({
         title: "Success",
-        description: "Collection created successfully",
+        description: "Template created successfully",
       });
       
       router.push(`/collections/${params.id}/tokens`);
@@ -150,7 +158,7 @@ export default function LayersPage({ params }: { params: { id: string } }) {
       console.error("Error:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to generate tokens",
+        description: error instanceof Error ? error.message : "Failed to create template",
         variant: "destructive",
       });
     }

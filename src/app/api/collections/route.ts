@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import crypto from 'crypto';
 
 export async function POST(req: Request) {
   try {
@@ -13,6 +14,9 @@ export async function POST(req: Request) {
       );
     }
 
+    // Generate a unique seed for the collection
+    const seed = crypto.randomBytes(32).toString('hex');
+
     // Find or create user with the provided address
     const user = await prisma.user.upsert({
       where: {
@@ -24,7 +28,7 @@ export async function POST(req: Request) {
       },
     });
 
-    // Create collection
+    // Create collection with seed
     const collection = await prisma.collection.create({
       data: {
         name,
@@ -32,6 +36,7 @@ export async function POST(req: Request) {
         tokenAmount,
         dimensions,
         format,
+        seed,
         user: {
           connect: {
             id: user.id,

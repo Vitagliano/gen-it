@@ -42,32 +42,45 @@ interface Token {
   traits: Trait[];
 }
 
+interface Attribute {
+  id: string;
+  name: string;
+  order: number;
+  traits: Trait[];
+}
+
 export default function SettingsPage({ params }: { params: { id: string } }) {
   const { address, isConnected } = useAccount();
   const [collection, setCollection] = useState<Collection | null>(null);
   const [unsavedChanges, setUnsavedChanges] = useState<Partial<Collection>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [attributes, setAttributes] = useState<Attribute[]>([]);
 
   useEffect(() => {
     const fetchCollection = async () => {
       if (!isConnected || !address) return;
 
       try {
-        const [collectionResponse, tokensResponse] = await Promise.all([
+        const [collectionResponse, tokensResponse, attributesResponse] = await Promise.all([
           fetch(`/api/collections/${params.id}?address=${address}`),
-          fetch(`/api/collections/${params.id}/tokens?address=${address}`),
+          fetch(`/api/collections/${params.id}/tokens?preview=true&address=${address}`),
+          fetch(`/api/collections/${params.id}/attributes?address=${address}`),
         ]);
 
-        if (!collectionResponse.ok || !tokensResponse.ok)
+        if (!collectionResponse.ok || !tokensResponse.ok || !attributesResponse.ok)
           throw new Error("Failed to fetch data");
 
-        const collectionData = await collectionResponse.json();
-        const tokensData = await tokensResponse.json();
+        const [collectionData, tokensData, attributesData] = await Promise.all([
+          collectionResponse.json(),
+          tokensResponse.json(),
+          attributesResponse.json(),
+        ]);
 
         setCollection({
           ...collectionData,
           tokens: tokensData,
         });
+        setAttributes(attributesData);
         setUnsavedChanges({});
       } catch (error) {
         console.error("Failed to fetch collection:", error);
@@ -79,7 +92,7 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
     fetchCollection();
   }, [params.id, address, isConnected]);
 
-  const handleChange = (
+  const handleChange = async (
     field: string,
     value: string | number | boolean | { width: number; height: number }
   ) => {
@@ -87,6 +100,14 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
       ...prev,
       [field]: value,
     }));
+
+    // If changing pixelated setting, no need to wait for save to update preview
+    if (field === 'pixelated') {
+      setCollection(prev => prev ? {
+        ...prev,
+        pixelated: value as boolean
+      } : null);
+    }
   };
 
   const handleSave = async () => {
@@ -108,7 +129,20 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
       if (!response.ok) throw new Error("Failed to update collection");
 
       const updatedCollection = await response.json();
-      setCollection(updatedCollection);
+      
+      // Fetch new preview tokens after updating collection
+      const tokensResponse = await fetch(
+        `/api/collections/${params.id}/tokens?preview=true&address=${address}`
+      );
+      
+      if (!tokensResponse.ok) throw new Error("Failed to fetch preview tokens");
+      
+      const tokensData = await tokensResponse.json();
+
+      setCollection({
+        ...updatedCollection,
+        tokens: tokensData,
+      });
       setUnsavedChanges({});
     } catch (error) {
       console.error("Failed to update collection:", error);
@@ -220,25 +254,31 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
           <div className="sticky top-4">
             <p className="text-sm font-medium mb-3">Preview</p>
             <Card className="overflow-hidden">
-              {collection?.tokens?.length ? (
-                <div className="relative aspect-square bg-checkerboard">
-                  {collection.tokens[0].traits.map((trait) => (
-                    <div key={trait.id} className="absolute inset-0">
-                      <img
-                        src={`http://localhost:3000/${trait.imagePath}`}
-                        alt={trait.name}
-                        className={
-                          (
-                            typeof unsavedChanges.pixelated !== "undefined"
-                              ? unsavedChanges.pixelated
-                              : collection.pixelated
-                          )
-                            ? "object-contain w-full h-full image-rendering-pixelated"
-                            : "object-contain w-full h-full"
-                        }
-                      />
-                    </div>
-                  ))}
+              {collection?.tokens?.[0] ? (
+                <div className="relative aspect-square bg-[#f5f5f5] bg-[linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee),linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee)] bg-[length:16px_16px] bg-[position:0_0,8px_8px]">
+                  {collection.tokens[0].traits
+                    .sort((a, b) => {
+                      const attrA = attributes.find(attr => attr.id === a.attributeId);
+                      const attrB = attributes.find(attr => attr.id === b.attributeId);
+                      return (attrA?.order || 0) - (attrB?.order || 0);
+                    })
+                    .map((trait) => (
+                      <div key={trait.id} className="absolute inset-0">
+                        <img
+                          src={`/${trait.imagePath}`}
+                          alt={trait.name}
+                          className={
+                            (
+                              typeof unsavedChanges.pixelated !== "undefined"
+                                ? unsavedChanges.pixelated
+                                : collection.pixelated
+                            )
+                              ? "object-contain w-full h-full image-rendering-pixelated"
+                              : "object-contain w-full h-full"
+                          }
+                        />
+                      </div>
+                    ))}
                 </div>
               ) : (
                 <div className="aspect-square bg-muted flex items-center justify-center">
@@ -250,10 +290,10 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
               <div className="p-3 border-t">
                 <div className="flex items-center justify-between">
                   <span className="font-medium">
-                    {collection?.name || "Collection Name"}
+                    {unsavedChanges.name || collection?.name || "Collection Name"}
                   </span>
                   <span className="text-muted-foreground">
-                    {collection?.tokenAmount || 0}
+                    {unsavedChanges.tokenAmount || collection?.tokenAmount || 0}
                   </span>
                 </div>
               </div>
@@ -344,25 +384,31 @@ export default function SettingsPage({ params }: { params: { id: string } }) {
           <div className="sticky top-4">
             <p className="text-sm font-medium mb-3">Preview</p>
             <Card className="overflow-hidden">
-              {collection?.tokens?.length ? (
-                <div className="relative aspect-square bg-checkerboard">
-                  {collection.tokens[0].traits.map((trait) => (
-                    <div key={trait.id} className="absolute inset-0">
-                      <img
-                        src={`http://localhost:3000/${trait.imagePath}`}
-                        alt={trait.name}
-                        className={
-                          (
-                            typeof unsavedChanges.pixelated !== "undefined"
-                              ? unsavedChanges.pixelated
-                              : collection.pixelated
-                          )
-                            ? "object-contain w-full h-full image-rendering-pixelated"
-                            : "object-contain w-full h-full"
-                        }
-                      />
-                    </div>
-                  ))}
+              {collection?.tokens?.[0] ? (
+                <div className="relative aspect-square bg-[#f5f5f5] bg-[linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee),linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee)] bg-[length:16px_16px] bg-[position:0_0,8px_8px]">
+                  {collection.tokens[0].traits
+                    .sort((a, b) => {
+                      const attrA = attributes.find(attr => attr.id === a.attributeId);
+                      const attrB = attributes.find(attr => attr.id === b.attributeId);
+                      return (attrA?.order || 0) - (attrB?.order || 0);
+                    })
+                    .map((trait) => (
+                      <div key={trait.id} className="absolute inset-0">
+                        <img
+                          src={`/${trait.imagePath}`}
+                          alt={trait.name}
+                          className={
+                            (
+                              typeof unsavedChanges.pixelated !== "undefined"
+                                ? unsavedChanges.pixelated
+                                : collection.pixelated
+                            )
+                              ? "object-contain w-full h-full image-rendering-pixelated"
+                              : "object-contain w-full h-full"
+                          }
+                        />
+                      </div>
+                    ))}
                 </div>
               ) : (
                 <div className="aspect-square bg-muted flex items-center justify-center">

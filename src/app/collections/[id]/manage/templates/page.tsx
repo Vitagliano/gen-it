@@ -428,7 +428,7 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
     e.dataTransfer.dropEffect = "move";
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, index: number) => {
     e.preventDefault();
 
     if (draggedItem === null) return;
@@ -466,25 +466,52 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
       }));
 
       // Update the attributes order in the database
-      setAttributes(updatedItems);
-
-      // Update the template attributes to maintain enabled states
-      if (selectedTemplate) {
-        setEditedTemplates((prev) =>
-          prev.map((t) =>
-            t.id === selectedTemplate.id
-              ? {
-                  ...t,
-                  attributes: updatedItems.map((attr) => ({
-                    id: attr.id,
-                    enabled:
-                      t.attributes.find((ta) => ta.id === attr.id)?.enabled ??
-                      false,
-                  })),
-                }
-              : t
-          )
+      try {
+        await Promise.all(
+          updatedItems.map(async (attr) => {
+            const response = await fetch(
+              `/api/collections/${params.id}/attributes/${attr.id}?address=${address}`,
+              {
+                method: "PATCH",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  order: attr.order,
+                }),
+              }
+            );
+            if (!response.ok) throw new Error("Failed to update attribute order");
+          })
         );
+
+        setAttributes(updatedItems);
+
+        // Update the template attributes to maintain enabled states
+        if (selectedTemplate) {
+          setEditedTemplates((prev) =>
+            prev.map((t) =>
+              t.id === selectedTemplate.id
+                ? {
+                    ...t,
+                    attributes: updatedItems.map((attr) => ({
+                      id: attr.id,
+                      enabled:
+                        t.attributes.find((ta) => ta.id === attr.id)?.enabled ??
+                        false,
+                    })),
+                  }
+                : t
+            )
+          );
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update layer order",
+          variant: "destructive",
+        });
       }
     }
 

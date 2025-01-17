@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { generateTokenMetadata } from "@/lib/token-generator";
 
 interface Trait {
   id: string;
@@ -126,7 +127,7 @@ export async function POST(
         },
       });
     }
-    // If increasing token amount, generate new tokens
+    // If increasing token amount, generate new tokens while keeping existing ones
     else if (tokenAmount > collection.tokens.length) {
       const existingCombinations = new Set(
         collection.tokens.map((token) =>
@@ -156,7 +157,7 @@ export async function POST(
         await prisma.token.create({
           data: {
             tokenNumber: startingTokenNumber + i,
-            metadata: {}, // To be filled with trait metadata
+            metadata: generateTokenMetadata(collection, selectedTraits),
             collection: {
               connect: {
                 id: collection.id,

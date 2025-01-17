@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Trait {
   id: string;
@@ -32,8 +33,15 @@ interface Trait {
 }
 
 interface Token {
-  id: string;
   tokenNumber: number;
+  metadata: {
+    name: string;
+    description: string;
+    attributes: Array<{
+      trait_type: string;
+      value: string;
+    }>;
+  };
   traits: Trait[];
 }
 
@@ -68,6 +76,13 @@ export default function TokensPage({ params }: { params: { id: string } }) {
   const [maxPossibleCombinations, setMaxPossibleCombinations] =
     useState<number>(0);
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
+  const [debouncedTokenAmount, setDebouncedTokenAmount] = useState<number>(0);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const pageSize = 20; // Number of tokens to load per page
+  const loadMoreRef = useRef(null);
+  const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
 
   useEffect(() => {
     if (isConnected && address) {
@@ -85,6 +100,52 @@ export default function TokensPage({ params }: { params: { id: string } }) {
     setMaxPossibleCombinations(combinations);
   }, [attributes]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (debouncedTokenAmount !== collection?.tokenAmount) {
+        handleTokenAmountChange(debouncedTokenAmount);
+      }
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timer);
+  }, [debouncedTokenAmount]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (
+          first.isIntersecting &&
+          hasMore &&
+          !isLoadingMore &&
+          !isLoading &&
+          !searchQuery &&
+          selectedTraits.size === 0
+        ) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasMore, isLoadingMore, isLoading, searchQuery, selectedTraits]);
+
+  useEffect(() => {
+    setPage(1);
+    setTokens([]);
+    fetchTokens(1);
+  }, [searchQuery, selectedTraits]);
+
   const fetchCollection = async () => {
     try {
       const response = await fetch(
@@ -99,15 +160,46 @@ export default function TokensPage({ params }: { params: { id: string } }) {
     }
   };
 
-  const fetchTokens = async () => {
+  const fetchTokens = async (pageNumber = 1) => {
     try {
+      if (pageNumber === 1) {
+        setIsLoading(true);
+      } else {
+        setIsLoadingMore(true);
+      }
+
+      const searchParams = new URLSearchParams({
+        preview: "true",
+        address: address || "",
+        page: pageNumber.toString(),
+        pageSize: pageSize.toString(),
+      });
+
+      // Handle token number search differently
+      const tokenNumberSearch = parseInt(searchQuery);
+      if (!isNaN(tokenNumberSearch)) {
+        searchParams.set("tokenNumber", tokenNumberSearch.toString());
+        searchParams.set("pageSize", "1"); // Only fetch the specific token
+      } else if (searchQuery) {
+        searchParams.append("search", searchQuery);
+        searchParams.set("pageSize", "1000"); // Load more tokens for text search
+      }
+
       const response = await fetch(
-        `/api/collections/${params.id}/tokens?address=${address}`
+        `/api/collections/${params.id}/tokens?${searchParams.toString()}`
       );
       if (!response.ok) throw new Error("Failed to fetch tokens");
       const data = await response.json();
-      setTokens(data);
+
+      if (pageNumber === 1) {
+        setTokens(data.tokens);
+      } else {
+        setTokens((prev) => [...prev, ...data.tokens]);
+      }
+
+      setHasMore(data.hasMore && !searchQuery); // Disable infinite scroll when searching
       setIsLoading(false);
+      setIsLoadingMore(false);
     } catch (error) {
       console.error("Error:", error);
       toast({
@@ -115,6 +207,8 @@ export default function TokensPage({ params }: { params: { id: string } }) {
         description: "Failed to fetch tokens",
         variant: "destructive",
       });
+      setIsLoading(false);
+      setIsLoadingMore(false);
     }
   };
 
@@ -139,30 +233,25 @@ export default function TokensPage({ params }: { params: { id: string } }) {
   const handleRegenerate = async () => {
     try {
       setIsRegenerating(true);
-      const response = await fetch(`/api/collections/${params.id}/tokens`, {
+      // Generate new seed
+      const response = await fetch(`/api/collections/${params.id}/seed`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          address,
-          regenerateAll: true,
-          attributes: attributes.map((attr) => ({
-            id: attr.id,
-            isEnabled: true,
-            order: attr.order,
-          })),
-        }),
+        body: JSON.stringify({ address }),
       });
 
-      if (!response.ok) throw new Error("Failed to regenerate tokens");
+      if (!response.ok) throw new Error("Failed to regenerate seed");
 
       toast({
         title: "Success",
         description: "Tokens regenerated successfully",
       });
 
+      // Fetch updated tokens with new seed
       await fetchTokens();
+      setRegenerateDialogOpen(false); // Close the dialog after successful regeneration
     } catch (error) {
       console.error("Error:", error);
       toast({
@@ -197,11 +286,7 @@ export default function TokensPage({ params }: { params: { id: string } }) {
           body: JSON.stringify({
             address,
             tokenAmount: value,
-            attributes: attributes.map((attr) => ({
-              id: attr.id,
-              isEnabled: true,
-              order: attr.order,
-            })),
+            attributes, // Pass current attributes to help with generation
           }),
         }
       );
@@ -213,8 +298,11 @@ export default function TokensPage({ params }: { params: { id: string } }) {
         description: "Token amount updated successfully",
       });
 
-      await fetchTokens();
+      // Fetch updated collection and tokens
       await fetchCollection();
+      setPage(1); // Reset pagination
+      setTokens([]); // Clear existing tokens
+      await fetchTokens(1); // Fetch first page of updated tokens
     } catch (error) {
       console.error("Error:", error);
       toast({
@@ -243,36 +331,16 @@ export default function TokensPage({ params }: { params: { id: string } }) {
     ).length;
   };
 
-  const filteredTokens = tokens
-    .filter((token) => {
-      if (!searchQuery) return true;
+  const filteredTokens = tokens.filter((token) => {
+    // When using search query, tokens are already filtered from the backend
+    if (searchQuery) return true;
 
-      // Search by token number
-      if (token.tokenNumber.toString().includes(searchQuery.toLowerCase())) {
-        return true;
-      }
-
-      // Search by trait name or attribute name
-      return token.traits.some((trait) => {
-        const attribute = attributes.find(
-          (attr) => attr.id === trait.attributeId
-        );
-        return (
-          trait.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (attribute &&
-            attribute.name.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
-      });
-    })
-    .filter((token) => {
-      // Filter by selected traits
-      if (selectedTraits.size > 0) {
-        return token.traits.some((trait) => selectedTraits.has(trait.id));
-      }
-      return true;
-    });
-
-  console.log(isLoading);
+    // Only apply client-side filtering for trait selection
+    if (selectedTraits.size > 0) {
+      return token.traits.some((trait) => selectedTraits.has(trait.id));
+    }
+    return true;
+  });
 
   // const generateTokenMetadata = (token: Token) => {
   //   if (!collection) return null;
@@ -301,6 +369,22 @@ export default function TokensPage({ params }: { params: { id: string } }) {
   //   return JSON.stringify(metadata, null, 2);
   // };
 
+  const loadMore = async () => {
+    if (isLoadingMore || !hasMore || isLoading) return;
+    setIsLoadingMore(true);
+    await fetchTokens(page + 1);
+    setPage((prev) => prev + 1);
+  };
+
+  const TokenSkeleton = () => (
+    <div className="relative aspect-square border rounded-lg overflow-hidden">
+      <Skeleton className="w-full h-full" />
+      <div className="absolute bottom-0 left-0 right-0 p-2">
+        <Skeleton className="h-4 w-3/4 mx-auto" />
+      </div>
+    </div>
+  );
+
   if (!isConnected || !address) {
     return null;
   }
@@ -324,38 +408,47 @@ export default function TokensPage({ params }: { params: { id: string } }) {
               max={maxPossibleCombinations}
               disabled={isRegenerating}
               onChange={(e) => {
-                const value = parseInt(e.target.value);
-                if (value > maxPossibleCombinations) {
-                  toast({
-                    title: "Warning",
-                    description: `Maximum possible combinations is ${maxPossibleCombinations}`,
-                    variant: "destructive",
-                  });
-                  return;
-                }
+                const value = parseInt(e.target.value) || 0;
                 setNewTokenAmount(value);
-                handleTokenAmountChange(value);
               }}
               className="w-24"
             />
             <span className="text-sm text-gray-500">
               / {maxPossibleCombinations}
             </span>
+            <Button
+              variant="outline"
+              disabled={
+                isRegenerating || newTokenAmount === collection?.tokenAmount
+              }
+              onClick={() => handleTokenAmountChange(newTokenAmount)}
+            >
+              Save
+            </Button>
           </div>
 
-          <Dialog>
+          <Dialog
+            open={regenerateDialogOpen}
+            onOpenChange={setRegenerateDialogOpen}
+          >
             <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <RefreshCw className="w-4 h-4" />
-                Regenerate All
+              <Button
+                variant="outline"
+                className="gap-2"
+                disabled={isRegenerating}
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${isRegenerating ? "animate-spin" : ""}`}
+                />
+                {isRegenerating ? "Regenerating..." : "Regenerate All"}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Regenerate Collection</DialogTitle>
                 <DialogDescription>
-                  This will regenerate all tokens with new random combinations.
-                  This action cannot be undone.
+                  This will regenerate all tokens with new random combinations
+                  using a new seed. This action cannot be undone.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
@@ -443,7 +536,7 @@ export default function TokensPage({ params }: { params: { id: string } }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredTokens.map((token) => (
               <div
-                key={token.id}
+                key={token.tokenNumber}
                 className="relative aspect-square border rounded-lg overflow-hidden bg-[#f5f5f5] group hover:border-primary transition-colors cursor-pointer"
                 onClick={() => setSelectedToken(token)}
               >
@@ -460,7 +553,7 @@ export default function TokensPage({ params }: { params: { id: string } }) {
                   .map((trait) => (
                     <div key={trait.id} className="absolute inset-0">
                       <img
-                        src={`http://localhost:3000/${trait.imagePath}`}
+                        src={`/${trait.imagePath}`}
                         alt={trait.name}
                         className={
                           collection?.pixelated
@@ -471,10 +564,45 @@ export default function TokensPage({ params }: { params: { id: string } }) {
                     </div>
                   ))}
                 <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                  Token #{token.tokenNumber}
+                  {collection?.tokenNamePattern
+                    ? collection.tokenNamePattern
+                        .replace(
+                          "{collection}",
+                          collection.name || "Collection"
+                        )
+                        .replace("{id}", token.tokenNumber.toString())
+                    : `${collection?.name || "Collection"} #${
+                        token.tokenNumber
+                      }`}
                 </div>
               </div>
             ))}
+
+            {(isLoading ||
+              (isLoadingMore && !searchQuery && selectedTraits.size === 0)) && (
+              <>
+                {Array.from({ length: pageSize }).map((_, index) => (
+                  <TokenSkeleton key={`skeleton-${index}`} />
+                ))}
+              </>
+            )}
+
+            {hasMore && !searchQuery && selectedTraits.size === 0 && (
+              <div
+                ref={loadMoreRef}
+                className="col-span-full flex justify-center p-4"
+              >
+                {isLoadingMore ? (
+                  <div className="animate-pulse flex space-x-4">
+                    <div className="h-4 w-4 bg-primary/10 rounded-full"></div>
+                    <div className="h-4 w-4 bg-primary/10 rounded-full"></div>
+                    <div className="h-4 w-4 bg-primary/10 rounded-full"></div>
+                  </div>
+                ) : (
+                  <div className="h-4" />
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -485,7 +613,18 @@ export default function TokensPage({ params }: { params: { id: string } }) {
       >
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Token #{selectedToken?.tokenNumber}</DialogTitle>
+            <DialogTitle>
+              {collection?.tokenNamePattern
+                ? collection.tokenNamePattern
+                    .replace("{collection}", collection.name || "Collection")
+                    .replace(
+                      "{id}",
+                      selectedToken?.tokenNumber.toString() || ""
+                    )
+                : `${collection?.name || "Collection"} #${
+                    selectedToken?.tokenNumber
+                  }`}
+            </DialogTitle>
             <DialogDescription>Token details and properties</DialogDescription>
           </DialogHeader>
 
@@ -505,7 +644,7 @@ export default function TokensPage({ params }: { params: { id: string } }) {
                   .map((trait) => (
                     <div key={trait.id} className="absolute inset-0">
                       <img
-                        src={`http://localhost:3000/${trait.imagePath}`}
+                        src={`/${trait.imagePath}`}
                         alt={trait.name}
                         className={
                           collection?.pixelated
@@ -521,10 +660,19 @@ export default function TokensPage({ params }: { params: { id: string } }) {
             <div>
               <h3 className="text-sm font-medium mb-3">Properties</h3>
               <div className="space-y-2">
-                {selectedToken?.traits.map((trait) => {
-                  const attribute = attributes.find(
-                    (attr) => attr.id === trait.attributeId
-                  );
+                {selectedToken?.metadata.attributes.map((attr, index) => {
+                  const trait = selectedToken.traits.find((t) => {
+                    const attribute = attributes.find(
+                      (a) => a.id === t.attributeId
+                    );
+                    return (
+                      attribute?.name === attr.trait_type &&
+                      t.name === attr.value
+                    );
+                  });
+
+                  if (!trait) return null;
+
                   const tokenCount = getTraitTokenCount(trait.id);
                   const percentage = (
                     (tokenCount / tokens.length) *
@@ -533,14 +681,14 @@ export default function TokensPage({ params }: { params: { id: string } }) {
 
                   return (
                     <div
-                      key={trait.id}
+                      key={index}
                       className="flex items-center justify-between text-sm"
                     >
                       <span className="text-muted-foreground">
-                        {attribute?.name}
+                        {attr.trait_type}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span>{trait.name}</span>
+                        <span>{attr.value}</span>
                         <span className="text-xs text-muted-foreground">
                           ({percentage}%)
                         </span>

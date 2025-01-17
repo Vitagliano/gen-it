@@ -1,47 +1,49 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { generateTokenTraits, generateTokenMetadata } from "@/lib/token-generator";
+import crypto from "crypto";
 
-type TokenCreateInput = Prisma.TokenCreateManyInput;
+// Helper function to generate preview tokens
+async function generatePreviewTokens(collection: any) {
+  const tokens = [];
+  for (let i = 0; i < collection.tokenAmount; i++) {
+    const tokenTraits = generateTokenTraits(collection, i);
+    if (!tokenTraits) continue;
 
-interface TokenTraitConnection {
-  tokenNumber: number;
-  traitIds: string[];
-}
+    const metadata = generateTokenMetadata(collection, tokenTraits.traitIds);
+    const traits = await prisma.trait.findMany({
+      where: {
+        id: {
+          in: tokenTraits.traitIds
+        }
+      }
+    });
 
-function weightedRandom<T extends { id: string; rarity: number }>(items: T[]) {
-  if (!items.length) return null;
-  
-  const totalWeight = items.reduce((acc, item) => acc + item.rarity, 0);
-  if (totalWeight <= 0) return items[0]; // Default to first item if no valid weights
-  
-  let random = Math.random() * totalWeight;
-  
-  for (const item of items) {
-    random -= item.rarity;
-    if (random <= 0) {
-      return item;
-    }
+    tokens.push({
+      tokenNumber: i,
+      metadata,
+      traits
+    });
   }
-  
-  return items[0];
+  return tokens;
 }
 
+// Export endpoint - persists tokens to database
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { address, attributes } = await req.json();
+    const { address } = await req.json();
 
-    if (!address || !attributes) {
+    if (!address) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    // Verify collection ownership and fetch collection with templates
+    // Verify collection ownership and fetch collection with all necessary data
     const collection = await prisma.collection.findFirst({
       where: {
         id: params.id,
@@ -61,19 +63,7 @@ export async function POST(
         },
         templates: {
           include: {
-            attributes: {
-              include: {
-                attribute: true,
-              },
-            },
-          },
-        },
-        tokens: {
-          include: {
-            traits: true,
-          },
-          orderBy: {
-            tokenNumber: 'asc',
+            attributes: true,
           },
         },
       },
@@ -86,12 +76,14 @@ export async function POST(
       );
     }
 
-    // Before selecting a template, verify we have templates
-    if (collection.templates.length === 0) {
-      return NextResponse.json(
-        { error: "No templates found. Please create at least one template." },
-        { status: 400 }
-      );
+    // Ensure collection has a seed
+    if (!collection.seed) {
+      const seed = crypto.randomBytes(32).toString('hex');
+      await prisma.collection.update({
+        where: { id: collection.id },
+        data: { seed },
+      });
+      collection.seed = seed;
     }
 
     // Delete existing tokens
@@ -101,88 +93,42 @@ export async function POST(
       },
     });
 
-    // Generate new tokens in batch
-    const tokensData: TokenCreateInput[] = [];
-    const tokenTraitConnections: TokenTraitConnection[] = [];
-
-    for (let i = 0; i < collection.tokenAmount; i++) {
-      // Select a template based on rarity
-      const selectedTemplate = weightedRandom(collection.templates);
-      if (!selectedTemplate) {
-        return NextResponse.json(
-          { error: "Failed to select a template. Please check template rarities." },
-          { status: 400 }
-        );
-      }
-      
-      // For each token, select traits based on the template's enabled attributes
-      const selectedTraits = attributes
-        .filter((attr: { id: string; isEnabled: boolean }) => {
-          const templateAttribute = selectedTemplate.attributes.find(
-            ta => ta.attribute.id === attr.id
-          );
-          return attr.isEnabled && templateAttribute?.enabled;
-        })
-        .map((attr: { id: string }) => {
-          const attribute = collection.attributes.find(a => a.id === attr.id);
-          if (!attribute || !attribute.traits.length) return null;
-          
-          const selectedTrait = weightedRandom(attribute.traits);
-          return selectedTrait?.id || null;
-        })
-        .filter(Boolean) as string[];
-
-      tokensData.push({
-        tokenNumber: i,
-        metadata: {}, // To be filled with trait metadata
-        collectionId: collection.id,
-      });
-
-      // Store trait connections for this token
-      tokenTraitConnections.push({
-        tokenNumber: i,
-        traitIds: selectedTraits,
-      });
-    }
-
-    // Split tokens into smaller batches to prevent transaction timeout
+    // Generate and store new tokens in batch
     const BATCH_SIZE = 100;
     let totalTokens = 0;
 
-    for (let i = 0; i < tokensData.length; i += BATCH_SIZE) {
-      const batchTokensData = tokensData.slice(i, i + BATCH_SIZE);
-      const batchTraitConnections = tokenTraitConnections.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < collection.tokenAmount; i += BATCH_SIZE) {
+      const batchSize = Math.min(BATCH_SIZE, collection.tokenAmount - i);
+      const batchTokens = Array.from({ length: batchSize }, (_, index) => {
+        const tokenNumber = i + index;
+        const tokenTraits = generateTokenTraits(collection, tokenNumber);
+
+        if (!tokenTraits) {
+          throw new Error("Failed to generate token traits");
+        }
+
+        return {
+          tokenNumber,
+          metadata: generateTokenMetadata(collection, tokenTraits.traitIds),
+          collectionId: collection.id,
+          traitIds: tokenTraits.traitIds,
+        };
+      });
 
       // Use transaction for each batch
       const batchResult = await prisma.$transaction(async (tx) => {
-        // 1. Create tokens in this batch
-        await tx.token.createMany({
-          data: batchTokensData,
-        });
-
-        // 2. Fetch created tokens in this batch
-        const createdTokens = await tx.token.findMany({
-          where: {
-            collectionId: collection.id,
-            tokenNumber: {
-              gte: i,
-              lt: i + BATCH_SIZE,
-            },
-          },
-          orderBy: {
-            tokenNumber: 'asc',
-          },
-        });
-
-        // 3. Connect traits to tokens in this batch
-        await Promise.all(
-          createdTokens.map((token, index) => {
-            const connections = batchTraitConnections[index];
-            return tx.token.update({
-              where: { id: token.id },
+        // Create tokens in this batch
+        const createdTokens = await Promise.all(
+          batchTokens.map(async (token) => {
+            return tx.token.create({
               data: {
+                tokenNumber: token.tokenNumber,
+                metadata: token.metadata,
+                collection: {
+                  connect: { id: token.collectionId },
+                },
                 traits: {
-                  connect: connections.traitIds.map((traitId: string) => ({ id: traitId })),
+                  connect: token.traitIds.map((id) => ({ id })),
                 },
               },
             });
@@ -190,21 +136,19 @@ export async function POST(
         );
 
         return createdTokens.length;
-      }, {
-        timeout: 10000, // Increase timeout to 10 seconds per batch
       });
 
       totalTokens += batchResult;
     }
 
     return NextResponse.json({
-      message: "Tokens generated successfully",
+      message: "Tokens exported successfully",
       count: totalTokens,
     });
   } catch (error) {
-    console.error("Error generating tokens:", error);
+    console.error("Error exporting tokens:", error);
     return NextResponse.json(
-      { error: "Failed to generate tokens" },
+      { error: "Failed to export tokens" },
       { status: 500 }
     );
   }
@@ -217,6 +161,11 @@ export async function GET(
   try {
     const { searchParams } = new URL(req.url);
     const address = searchParams.get("address");
+    const preview = searchParams.get("preview") === "true";
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "20");
+    const tokenNumber = searchParams.get("tokenNumber");
+    const skip = (page - 1) * pageSize;
 
     if (!address) {
       return NextResponse.json(
@@ -225,14 +174,115 @@ export async function GET(
       );
     }
 
-    const tokens = await prisma.token.findMany({
+    const collection = await prisma.collection.findFirst({
       where: {
-        collection: {
-          id: params.id,
-          user: {
-            address: address.toLowerCase(),
+        id: params.id,
+        user: {
+          address: address.toLowerCase(),
+        },
+      },
+      include: {
+        attributes: {
+          include: {
+            traits: {
+              where: {
+                isEnabled: true,
+              },
+            },
           },
         },
+        templates: {
+          include: {
+            attributes: true,
+          },
+        },
+      },
+    });
+
+    if (!collection) {
+      return NextResponse.json(
+        { error: "Collection not found" },
+        { status: 404 }
+      );
+    }
+
+    if (preview) {
+      if (!collection.seed) {
+        const seed = crypto.randomBytes(32).toString('hex');
+        await prisma.collection.update({
+          where: { id: collection.id },
+          data: { seed },
+        });
+        collection.seed = seed;
+      }
+
+      // Handle specific token number search
+      if (tokenNumber !== null) {
+        const tokenNum = parseInt(tokenNumber);
+        if (tokenNum >= 0 && tokenNum < collection.tokenAmount) {
+          const tokenTraits = generateTokenTraits(collection, tokenNum);
+          if (tokenTraits) {
+            const metadata = generateTokenMetadata(collection, tokenTraits.traitIds);
+            const traits = await prisma.trait.findMany({
+              where: {
+                id: {
+                  in: tokenTraits.traitIds
+                }
+              }
+            });
+
+            return NextResponse.json({
+              tokens: [{
+                tokenNumber: tokenNum,
+                metadata,
+                traits
+              }],
+              total: 1,
+              hasMore: false
+            });
+          }
+        }
+        // Return empty result if token number is invalid
+        return NextResponse.json({
+          tokens: [],
+          total: 0,
+          hasMore: false
+        });
+      }
+
+      // Generate only the tokens for the current page
+      const previewTokens = [];
+      for (let i = skip; i < skip + pageSize && i < collection.tokenAmount; i++) {
+        const tokenTraits = generateTokenTraits(collection, i);
+        if (!tokenTraits) continue;
+
+        const metadata = generateTokenMetadata(collection, tokenTraits.traitIds);
+        const traits = await prisma.trait.findMany({
+          where: {
+            id: {
+              in: tokenTraits.traitIds
+            }
+          }
+        });
+
+        previewTokens.push({
+          tokenNumber: i,
+          metadata,
+          traits
+        });
+      }
+
+      return NextResponse.json({
+        tokens: previewTokens,
+        total: collection.tokenAmount,
+        hasMore: skip + pageSize < collection.tokenAmount
+      });
+    }
+
+    // Otherwise, fetch persisted tokens from database
+    const tokens = await prisma.token.findMany({
+      where: {
+        collectionId: params.id,
       },
       include: {
         traits: true,
