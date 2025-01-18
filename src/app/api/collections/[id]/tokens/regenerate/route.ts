@@ -57,7 +57,7 @@ export async function POST(
     console.log('Temporary seed:', tempSeed);
 
     // Store original seed and update collection with temp seed
-    const originalSeed = collection.seed;
+    // const originalSeed = collection.seed;
     collection.seed = tempSeed;
 
     // Regenerate each selected token

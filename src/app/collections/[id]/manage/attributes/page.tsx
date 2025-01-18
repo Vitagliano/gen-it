@@ -5,16 +5,9 @@ import { useAccount } from "wagmi";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { Search, MoreVertical } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+import { Search } from "lucide-react";
+
 import debounce from "lodash/debounce";
 
 interface Trait {
@@ -174,7 +167,7 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
 
   const regenerateTokens = async () => {
     if (isRegenerating) return;
-    
+
     setIsRegenerating(true);
     try {
       const response = await fetch(
@@ -217,29 +210,32 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
 
   // Debounced function to update trait rarity
   const debouncedUpdateTrait = useCallback(
-    debounce(async (attributeId: string, traitId: string, newRarity: number) => {
-      try {
-        await fetch(
-          `/api/collections/${params.id}/attributes/${attributeId}/traits/${traitId}?address=${address}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              rarity: newRarity,
-            }),
-          }
-        );
-      } catch (error) {
-        console.error("Error updating trait rarity:", error);
-        toast({
-          title: "Error",
-          description: "Failed to update trait rarity",
-          variant: "destructive",
-        });
-      }
-    }, 500),
+    debounce(
+      async (attributeId: string, traitId: string, newRarity: number) => {
+        try {
+          await fetch(
+            `/api/collections/${params.id}/attributes/${attributeId}/traits/${traitId}?address=${address}`,
+            {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                rarity: newRarity,
+              }),
+            }
+          );
+        } catch (error) {
+          console.error("Error updating trait rarity:", error);
+          toast({
+            title: "Error",
+            description: "Failed to update trait rarity",
+            variant: "destructive",
+          });
+        }
+      },
+      500
+    ),
     [params.id, address]
   );
 
@@ -253,30 +249,30 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
     debouncedUpdateTrait(attributeId, traitId, newRarity);
   };
 
-  const handleToggleTrait = (attributeId: string, traitId: string) => {
-    setEditedAttributes((prev) =>
-      prev.map((attr) => {
-        if (attr.id !== attributeId) return attr;
+  // const handleToggleTrait = (attributeId: string, traitId: string) => {
+  //   setEditedAttributes((prev) =>
+  //     prev.map((attr) => {
+  //       if (attr.id !== attributeId) return attr;
 
-        const updatedTraits = attr.traits.map((trait) =>
-          trait.id === traitId
-            ? { ...trait, isEnabled: !trait.isEnabled }
-            : trait
-        );
+  //       const updatedTraits = attr.traits.map((trait) =>
+  //         trait.id === traitId
+  //           ? { ...trait, isEnabled: !trait.isEnabled }
+  //           : trait
+  //       );
 
-        // Recalculate rarities for enabled traits
-        const enabledTraits = updatedTraits.filter((t) => t.isEnabled);
-        const equalRarity = 100 / enabledTraits.length;
+  //       // Recalculate rarities for enabled traits
+  //       const enabledTraits = updatedTraits.filter((t) => t.isEnabled);
+  //       const equalRarity = 100 / enabledTraits.length;
 
-        return {
-          ...attr,
-          traits: updatedTraits.map((trait) =>
-            trait.isEnabled ? { ...trait, rarity: equalRarity } : trait
-          ),
-        };
-      })
-    );
-  };
+  //       return {
+  //         ...attr,
+  //         traits: updatedTraits.map((trait) =>
+  //           trait.isEnabled ? { ...trait, rarity: equalRarity } : trait
+  //         ),
+  //       };
+  //     })
+  //   );
+  // };
 
   const filteredAttributes = editedAttributes.filter(
     (attribute) =>
@@ -303,10 +299,7 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <Button 
-            onClick={regenerateTokens}
-            disabled={isRegenerating}
-          >
+          <Button onClick={regenerateTokens} disabled={isRegenerating}>
             {isRegenerating ? "Regenerating..." : "Regenerate Tokens"}
           </Button>
         </div>

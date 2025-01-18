@@ -507,6 +507,7 @@ export default function TokensPage({ params }: { params: { id: string } }) {
               onChange={(e) => {
                 const value = parseInt(e.target.value) || 0;
                 setNewTokenAmount(value);
+                setDebouncedTokenAmount(value);
               }}
               className="w-24"
             />

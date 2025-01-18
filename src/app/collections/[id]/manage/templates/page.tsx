@@ -68,9 +68,6 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
   const [newTemplateName, setNewTemplateName] = useState("");
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [rarityMode, setRarityMode] = useState<"percentage" | "weight">(
-    "percentage"
-  );
   const [newTemplateAttributes, setNewTemplateAttributes] = useState<
     {
       id: string;
@@ -629,52 +626,19 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
               </div>
 
               <div className="space-y-4">
-                {rarityMode === "percentage" ? (
-                  <>
-                    <Slider
-                      value={[template.rarity]}
-                      onValueChange={([value]) =>
-                        handleUpdateTemplateRarity(template.id, value)
-                      }
-                      min={0}
-                      max={100}
-                      step={0.1}
-                      className="w-full"
-                    />
-                    <div className="text-sm text-gray-500">
-                      Estimated {template.rarity.toFixed(1)}%
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() =>
-                        handleUpdateTemplateRarity(
-                          template.id,
-                          Math.max(0, template.rarity - 1)
-                        )
-                      }
-                    >
-                      #
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() =>
-                        handleUpdateTemplateRarity(
-                          template.id,
-                          Math.min(100, template.rarity + 1)
-                        )
-                      }
-                    >
-                      %
-                    </Button>
-                  </div>
-                )}
+                <Slider
+                  value={[template.rarity]}
+                  onValueChange={([value]) =>
+                    handleUpdateTemplateRarity(template.id, value)
+                  }
+                  min={0}
+                  max={100}
+                  step={0.1}
+                  className="w-full"
+                />
+                <div className="text-sm text-gray-500">
+                  Estimated {template.rarity.toFixed(1)}%
+                </div>
               </div>
             </div>
           </div>

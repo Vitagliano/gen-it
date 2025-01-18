@@ -6,6 +6,15 @@ interface TokenTraits {
   traitIds: string[];
 }
 
+interface TokenMetadata {
+  name: string;
+  description: string;
+  attributes: Array<{
+    trait_type: string;
+    value: string;
+  }>;
+}
+
 /**
  * Generates a deterministic random number between 0 and 1 based on a seed and index
  */
@@ -197,10 +206,10 @@ function generateTokenMetadata(
   },
   traits: string[]
 ) {
-  const metadata: Record<string, any> = {
+  const metadata: TokenMetadata = {
     name: `${collection.name} #${collection.startAtZero ? 0 : 1}`,
     description: collection.description || '',
-    attributes: [] as Record<string, string>[],
+    attributes: [],
   };
 
   // Map trait IDs to their attribute names and values

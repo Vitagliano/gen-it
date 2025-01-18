@@ -4,29 +4,29 @@ import { generateTokenTraits, generateTokenMetadata } from "@/lib/token-generato
 import crypto from "crypto";
 
 // Helper function to generate preview tokens
-async function generatePreviewTokens(collection: any) {
-  const tokens = [];
-  for (let i = 0; i < collection.tokenAmount; i++) {
-    const tokenTraits = generateTokenTraits(collection, i);
-    if (!tokenTraits) continue;
+// async function generatePreviewTokens(collection: any) {
+//   const tokens = [];
+//   for (let i = 0; i < collection.tokenAmount; i++) {
+//     const tokenTraits = generateTokenTraits(collection, i);
+//     if (!tokenTraits) continue;
 
-    const metadata = generateTokenMetadata(collection, tokenTraits.traitIds);
-    const traits = await prisma.trait.findMany({
-      where: {
-        id: {
-          in: tokenTraits.traitIds
-        }
-      }
-    });
+//     const metadata = generateTokenMetadata(collection, tokenTraits.traitIds);
+//     const traits = await prisma.trait.findMany({
+//       where: {
+//         id: {
+//           in: tokenTraits.traitIds
+//         }
+//       }
+//     });
 
-    tokens.push({
-      tokenNumber: i,
-      metadata,
-      traits
-    });
-  }
-  return tokens;
-}
+//     tokens.push({
+//       tokenNumber: i,
+//       metadata,
+//       traits
+//     });
+//   }
+//   return tokens;
+// }
 
 // Export endpoint - persists tokens to database
 export async function POST(

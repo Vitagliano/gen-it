@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { generateTokenTraits, generateTokenMetadata } from "@/lib/token-generator";
 import { Attribute, Collection, Token, Trait } from "@prisma/client";
 import JSZip from "jszip";
 import sharp from "sharp";
