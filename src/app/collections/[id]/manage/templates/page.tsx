@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getTraitImageUrl } from "@/lib/utils";
 
 interface Collection {
   id: string;
@@ -76,6 +77,7 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
     }[]
   >([]);
   const [draggedItem, setDraggedItem] = useState<number | null>(null);
+  const [traitUrls, setTraitUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isConnected && address) {
@@ -110,6 +112,18 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
       );
     }
   }, [isCreating, attributes]);
+
+  useEffect(() => {
+    attributes.forEach(attribute => {
+      if (attribute.traits[0]?.imagePath) {
+        if (!traitUrls[attribute.traits[0].imagePath]) {
+          getTraitImageUrl(attribute.traits[0].imagePath).then(url => {
+            setTraitUrls(prev => ({ ...prev, [attribute.traits[0].imagePath]: url }));
+          });
+        }
+      }
+    });
+  }, [attributes]);
 
   const fetchCollection = async () => {
     try {
@@ -581,7 +595,7 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
                     attribute.traits[0] && (
                       <div key={attribute.id} className="absolute inset-0">
                         <img
-                          src={`/${attribute.traits[0].imagePath}`}
+                          src={traitUrls[attribute.traits[0].imagePath] || ''}
                           alt={attribute.name}
                           className={
                             collection?.pixelated
@@ -693,7 +707,7 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
                             <div className="relative w-8 h-8 bg-[#f5f5f5] bg-[linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee),linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee)] bg-[length:8px_8px] bg-[position:0_0,4px_4px] rounded-md overflow-hidden">
                               {attribute.traits[0] && (
                                 <img
-                                  src={`/${attribute.traits[0].imagePath}`}
+                                  src={traitUrls[attribute.traits[0].imagePath] || ''}
                                   alt={attribute.name}
                                   className={
                                     collection?.pixelated
@@ -743,7 +757,7 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
                         className="absolute inset-0 w-full h-full"
                       >
                         <img
-                          src={`/${attribute.traits[0].imagePath}`}
+                          src={traitUrls[attribute.traits[0].imagePath] || ''}
                           alt={attribute.name}
                           className={`w-full h-full ${
                             collection?.pixelated
@@ -839,7 +853,7 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
                             <div className="relative w-8 h-8 bg-[#f5f5f5] bg-[linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee),linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee)] bg-[length:8px_8px] bg-[position:0_0,4px_4px] rounded-md overflow-hidden">
                               {attribute.traits[0] && (
                                 <img
-                                  src={`/${attribute.traits[0].imagePath}`}
+                                  src={traitUrls[attribute.traits[0].imagePath] || ''}
                                   alt={attribute.name}
                                   className={
                                     collection?.pixelated
@@ -900,7 +914,7 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
                           className="absolute inset-0 w-full h-full"
                         >
                           <img
-                            src={`/${attribute.traits[0].imagePath}`}
+                            src={traitUrls[attribute.traits[0].imagePath] || ''}
                             alt={attribute.name}
                             className={`w-full h-full ${
                               collection?.pixelated

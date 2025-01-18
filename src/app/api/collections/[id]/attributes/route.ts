@@ -1,14 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
-
-// Validate file type
-function isValidFileType(filename: string): boolean {
-  const validExtensions = ['.png', '.jpg', '.jpeg', '.svg'];
-  const ext = path.extname(filename).toLowerCase();
-  return validExtensions.includes(ext);
-}
+import { auth } from "@/lib/auth";
+import { uploadToS3 } from "@/lib/s3";
 
 export async function GET(
   request: Request,
@@ -61,25 +54,12 @@ export async function POST(
     const formData = await request.formData();
     const name = formData.get("name") as string;
     const order = parseInt(formData.get("order") as string);
-    const files = formData.getAll("files") as File[];
     const address = formData.get("address") as string;
+    const files = formData.getAll("files") as File[];
 
-    // Validate inputs
-    if (!name || isNaN(order) || !files.length || !address) {
+    if (!name || !files.length || !address) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
-
-    // Validate file types
-    const invalidFiles = files.filter(file => !isValidFileType(file.name));
-    if (invalidFiles.length > 0) {
-      return NextResponse.json(
-        { 
-          error: "Invalid file types", 
-          files: invalidFiles.map(f => f.name)
-        },
         { status: 400 }
       );
     }
@@ -96,7 +76,7 @@ export async function POST(
 
     if (!collection) {
       return NextResponse.json(
-        { error: "Collection not found" },
+        { error: "Collection not found or unauthorized" },
         { status: 404 }
       );
     }
@@ -114,10 +94,6 @@ export async function POST(
       },
     });
 
-    // Create upload directory structure
-    const uploadDir = path.join(process.cwd(), "public", "assets", params.id, name);
-    await mkdir(uploadDir, { recursive: true });
-
     // Process and save trait files
     const traits = await Promise.all(
       files.map(async (file) => {
@@ -125,18 +101,18 @@ export async function POST(
         const buffer = Buffer.from(bytes);
         
         // Clean filename and ensure it's safe
-        const cleanFilename = path.basename(file.name).replace(/[^a-zA-Z0-9.-]/g, '-');
-        const filePath = path.join("assets", params.id, name, cleanFilename);
-        const fullPath = path.join(process.cwd(), "public", filePath);
-
-        await writeFile(fullPath, buffer);
+        const cleanFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '-');
+        const s3Key = `collections/${params.id}/${name}/${cleanFilename}`;
+        
+        // Upload to S3
+        const imageUrl = await uploadToS3(buffer, s3Key);
 
         // Create trait with cleaned name
-        const traitName = path.parse(cleanFilename).name;
+        const traitName = cleanFilename.replace(/\.[^/.]+$/, ""); // Remove file extension
         return prisma.trait.create({
           data: {
             name: traitName,
-            imagePath: filePath,
+            imagePath: s3Key, // Store S3 key instead of local path
             rarity: 100 / files.length, // Default equal distribution
             attribute: {
               connect: {

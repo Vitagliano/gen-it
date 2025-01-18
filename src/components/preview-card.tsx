@@ -1,5 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { Attribute, Token } from "@/types/index";
+import { getTraitImageUrl } from "@/lib/utils";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 
 interface PreviewCardProps {
   token?: Token;
@@ -19,6 +22,23 @@ export function PreviewCard({
   showFooter = true,
 }: PreviewCardProps) {
   const sortedAttributes = [...attributes].sort((a, b) => a.order - b.order);
+  const [traitUrls, setTraitUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const loadTraitUrls = async () => {
+      const urls: Record<string, string> = {};
+      for (const trait of token?.traits || []) {
+        urls[trait.imagePath] = await getTraitImageUrl(trait.imagePath);
+      }
+      for (const attr of sortedAttributes) {
+        if (attr.traits?.[0]) {
+          urls[attr.traits[0].imagePath] = await getTraitImageUrl(attr.traits[0].imagePath);
+        }
+      }
+      setTraitUrls(urls);
+    };
+    loadTraitUrls();
+  }, [token, sortedAttributes]);
 
   return (
     <Card className="overflow-hidden">
@@ -32,35 +52,46 @@ export function PreviewCard({
             })
             .map((trait) => (
               <div key={trait.id} className="absolute inset-0">
-                <img
-                  src={`/${trait.imagePath}`}
-                  alt={trait.name}
-                  className={
-                    pixelated
-                      ? "object-contain w-full h-full image-rendering-pixelated"
-                      : "object-contain w-full h-full"
-                  }
-                />
-              </div>
-            ))
-        ) : (
-          sortedAttributes.length > 0 ? (
-            sortedAttributes.map((attribute) => 
-              (attribute.traits || []).length > 0 && (
-                <div key={attribute.id} className="absolute inset-0">
-                  <img
-                    src={`/${(attribute.traits || [])[0].imagePath}`}
-                    alt={`${(attribute.traits || [])[0].name}`}
-                    className={pixelated ? "object-contain w-full h-full image-rendering-pixelated" : "object-contain w-full h-full"}
+                <div className="relative w-full h-full">
+                  <Image
+                    src={traitUrls[trait.imagePath] || ''}
+                    alt={trait.name}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                    className={
+                      pixelated
+                        ? "object-contain image-rendering-pixelated"
+                        : "object-contain"
+                    }
                   />
                 </div>
+              </div>
+            ))
+        ) : sortedAttributes.length > 0 ? (
+          sortedAttributes.map(
+            (attribute) =>
+              attribute.traits?.[0] && (
+                <div key={attribute.id} className="absolute inset-0">
+                  <div className="relative w-full h-full">
+                    <Image
+                      src={traitUrls[attribute.traits[0].imagePath]}
+                      alt={attribute.traits[0].name}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      className={
+                        pixelated
+                          ? "object-contain image-rendering-pixelated"
+                          : "object-contain"
+                      }
+                    />
+                  </div>
+                </div>
               )
-            )
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <span className="text-muted-foreground">No preview available</span>
-            </div>
           )
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <span className="text-muted-foreground">No preview available</span>
+          </div>
         )}
       </div>
       {showFooter && (

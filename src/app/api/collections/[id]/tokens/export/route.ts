@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Attribute, Collection, Token, Trait } from "@prisma/client";
+import { Attribute, Collection, Trait, TraitRule } from "@prisma/client";
 import JSZip from "jszip";
 import sharp from "sharp";
-import path from "path";
+import { getS3Url } from "@/lib/s3";
+import { generateTokenTraits, generateTokenMetadata } from "@/lib/token-generator";
 
 interface Dimensions {
   width: number;
@@ -13,12 +14,8 @@ interface Dimensions {
 type CollectionWithRelations = Omit<Collection, 'dimensions'> & {
   attributes: (Attribute & {
     traits: Trait[];
-    order: number;
   })[];
   dimensions: Dimensions;
-  tokens: (Token & {
-    traits: Trait[];
-  })[];
   templates: {
     id: string;
     attributes: {
@@ -26,15 +23,18 @@ type CollectionWithRelations = Omit<Collection, 'dimensions'> & {
       enabled: boolean;
     }[];
   }[];
+  traitRules: TraitRule[];
 };
 
-type TokenWithTraits = Token & {
+type TokenWithTraits = {
+  tokenNumber: number;
+  metadata: object;
   traits: Trait[];
 };
 
-// Store export progress in memory (in a production app, this should be in Redis or similar)
+// Store export progress and data in memory (consider using a persistent store like Redis for production)
 const exportProgress = new Map<string, number>();
-const exportData = new Map<string, Buffer>();
+const exportData = new Map<string, { buffer: Buffer; name: string }>();
 
 export async function POST(
   req: Request,
@@ -70,64 +70,58 @@ export async function GET(
   try {
     const { searchParams } = new URL(req.url);
     const address = searchParams.get("address");
-    const download = searchParams.get("download") === "true";
 
     if (!address) {
       return NextResponse.json(
-        { error: "Address is required" },
+        { error: "Missing address parameter" },
         { status: 400 }
       );
     }
 
-    // If download parameter is true, return the zip file
-    if (download) {
-      const zipBuffer = exportData.get(params.id);
-      if (!zipBuffer) {
-        return NextResponse.json(
-          { error: "Export not found or still in progress" },
-          { status: 404 }
-        );
-      }
+    const progress = exportProgress.get(params.id);
+    if (progress === undefined) {
+      return NextResponse.json(
+        { error: "No export found for this collection" },
+        { status: 404 }
+      );
+    }
 
-      // Get collection name for the filename
-      const collection = await prisma.collection.findFirst({
-        where: {
-          id: params.id,
-          user: {
-            address: address.toLowerCase(),
-          },
-        },
-        select: { name: true },
+    if (progress < 100) {
+      return NextResponse.json({
+        progress,
+        isComplete: false,
+        message: `Export in progress: ${progress}% completed`
       });
+    }
 
-      if (!collection) {
-        return NextResponse.json(
-          { error: "Collection not found" },
-          { status: 404 }
-        );
-      }
+    const exportDataObj = exportData.get(params.id);
+    if (!exportDataObj) {
+      return NextResponse.json({
+        error: "Export data not found"
+      }, { status: 500 });
+    }
 
-      // Clear the stored data after download
-      exportData.delete(params.id);
-      exportProgress.delete(params.id);
-
-      return new NextResponse(zipBuffer, {
+    // Only send ZIP if explicitly requested via Accept header
+    const acceptHeader = req.headers.get('Accept');
+    if (acceptHeader === 'application/zip') {
+      return new NextResponse(exportDataObj.buffer, {
         headers: {
-          "Content-Type": "application/zip",
-          "Content-Disposition": `attachment; filename="${collection.name}-export.zip"`,
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename=${exportDataObj.name}.zip`,
         },
       });
     }
 
-    // Otherwise return the progress
-    const progress = exportProgress.get(params.id) ?? 0;
-    const isComplete = progress === 100 && exportData.has(params.id);
-
-    return NextResponse.json({ progress, isComplete });
+    // Otherwise send progress status
+    return NextResponse.json({
+      progress: 100,
+      isComplete: true,
+      message: "Export complete"
+    });
   } catch (error) {
-    console.error("Error checking export status:", error);
+    console.error("Error retrieving export:", error);
     return NextResponse.json(
-      { error: "Failed to check export status" },
+      { error: "Failed to retrieve export" },
       { status: 500 }
     );
   }
@@ -135,10 +129,9 @@ export async function GET(
 
 async function generateExport(collectionId: string, address: string) {
   try {
-    // Set initial progress
+    console.log(`Starting export for collection ${collectionId} by ${address}`);
     exportProgress.set(collectionId, 0);
 
-    // Fetch collection data
     const collectionData = await prisma.collection.findFirst({
       where: {
         id: collectionId,
@@ -155,110 +148,127 @@ async function generateExport(collectionId: string, address: string) {
               },
             },
           },
+          orderBy: {
+            order: 'asc',
+          },
         },
         templates: {
           include: {
             attributes: true,
           },
         },
-        tokens: {
-          include: {
-            traits: true,
-          },
-          orderBy: {
-            tokenNumber: "asc",
-          },
-        },
+        traitRules: true,
       },
     });
 
-    if (!collectionData || !collectionData.seed) {
-      throw new Error("Collection not found or has no seed");
+    if (!collectionData) {
+      console.error(`Collection ${collectionId} not found for address ${address}`);
+      throw new Error("Collection not found");
     }
 
-    // Parse dimensions from JSON and create properly typed collection object
-    let dimensions: Dimensions = { width: 512, height: 512 };
+    console.log(`Found collection with ${collectionData.tokenAmount} tokens`);
 
-    if (
-      typeof collectionData.dimensions === 'object' &&
-      collectionData.dimensions !== null &&
-      'width' in collectionData.dimensions &&
-      'height' in collectionData.dimensions &&
-      typeof collectionData.dimensions.width === 'number' &&
-      typeof collectionData.dimensions.height === 'number'
-    ) {
-      dimensions = {
-        width: collectionData.dimensions.width,
-        height: collectionData.dimensions.height
-      };
-    }
-
+    // Parse dimensions
     const collection: CollectionWithRelations = {
       ...collectionData,
-      dimensions,
+      dimensions: {
+        width: Number((collectionData.dimensions as any)?.width) || 512,
+        height: Number((collectionData.dimensions as any)?.height) || 512,
+      }
     };
+    console.log('Collection dimensions:', collection.dimensions);
 
     const zip = new JSZip();
     const imagesFolder = zip.folder("images");
     const metadataFolder = zip.folder("metadata");
 
     if (!imagesFolder || !metadataFolder) {
+      console.error("Failed to create ZIP folders");
       throw new Error("Failed to create zip folders");
     }
 
-    const totalTokens = collection.tokens.length;
+    console.log('Created ZIP folders for images and metadata');
+
+    const totalTokens = collectionData.tokenAmount;
     let processedTokens = 0;
 
-    // Process each token
-    for (const token of collection.tokens) {
-      // Generate metadata JSON
-      const metadata = {
-        name: `${collection.name} #${token.tokenNumber}`,
-        description: collection.description || "",
-        image: `${token.tokenNumber}.png`,
-        attributes: token.traits.map(trait => {
-          const attribute = collection.attributes.find(attr =>
-            attr.traits.some(t => t.id === trait.id)
-          );
-          return {
-            trait_type: attribute?.name || "",
-            value: trait.name,
+    // Process tokens in smaller batches
+    const batchSize = 5;
+    console.log(`Processing ${totalTokens} tokens in batches of ${batchSize}`);
+
+    for (let i = 0; i < totalTokens; i += batchSize) {
+      const batch = Array.from({ length: Math.min(batchSize, totalTokens - i) }, (_, index) => i + index);
+
+      console.log(`Processing batch ${Math.floor(i / batchSize) + 1}, tokens ${i} to ${i + batch.length - 1}`);
+
+      await Promise.all(batch.map(async (tokenNumber) => {
+        try {
+          console.log(`Processing token #${tokenNumber}`);
+
+          // Generate traits and metadata
+          const tokenTraits = generateTokenTraits(collectionData, tokenNumber);
+          if (!tokenTraits) {
+            console.error(`Failed to generate traits for token #${tokenNumber}`);
+            return;
+          }
+
+          const metadata = generateTokenMetadata(collectionData, tokenTraits.traitIds) as any;
+
+          // Fetch trait details
+          const traits = collectionData.attributes.flatMap(attr => attr.traits).filter(trait => tokenTraits.traitIds.includes(trait.id));
+
+          const token: TokenWithTraits = {
+            tokenNumber,
+            metadata,
+            traits,
           };
-        }),
-      };
 
-      // Add metadata JSON file
-      metadataFolder.file(
-        `${token.tokenNumber}.json`,
-        JSON.stringify(metadata, null, 2)
-      );
+          console.log(`Generated metadata for token #${token.tokenNumber}:`, metadata);
 
-      // Generate and add image file
-      const imageBuffer = await generateTokenImage(token, collection);
-      imagesFolder.file(`${token.tokenNumber}.png`, imageBuffer);
+          // Add metadata JSON file
+          metadataFolder.file(
+            `${token.tokenNumber}.json`,
+            JSON.stringify(metadata, null, 2)
+          );
 
-      // Update progress
-      processedTokens++;
-      const progress = Math.round((processedTokens / totalTokens) * 100);
-      exportProgress.set(collectionId, progress);
+          // Generate and add image file
+          console.log(`Generating image for token #${token.tokenNumber}`);
+          const imageBuffer = await generateTokenImage(token, collection);
+          console.log(`Generated image buffer for token #${token.tokenNumber}, size: ${imageBuffer.length} bytes`);
+
+          imagesFolder.file(`${token.tokenNumber}.png`, imageBuffer);
+
+          processedTokens++;
+          const progress = Math.round((processedTokens / totalTokens) * 100);
+          exportProgress.set(collectionId, progress);
+          console.log(`Token #${token.tokenNumber} complete. Overall progress: ${progress}%`);
+        } catch (error) {
+          console.error(`Error processing token ${tokenNumber}:`, error);
+          throw error;
+        }
+      }));
     }
 
-    // Generate final zip file
+    console.log('All tokens processed, generating final ZIP file');
     const zipBuffer = await zip.generateAsync({
       type: "nodebuffer",
       compression: "DEFLATE",
       compressionOptions: {
         level: 5,
-      },
+      }
     });
+    console.log(`Generated ZIP file, size: ${zipBuffer.length} bytes`);
 
-    // Store the zip file in memory
-    exportData.set(collectionId, zipBuffer);
+    exportData.set(collectionId, { buffer: zipBuffer, name: collectionData.name });
     exportProgress.set(collectionId, 100);
+    console.log('Export complete');
+
+    // After adding files to metadataFolder and imagesFolder
+    console.log(`Added ${metadataFolder.files.size} metadata files and ${imagesFolder.files.size} image files to ZIP`);
   } catch (error) {
     console.error("Error generating export:", error);
-    // Set progress to -1 to indicate error
     exportProgress.set(collectionId, -1);
+    throw error;
   }
 }
 
@@ -268,10 +278,13 @@ async function generateTokenImage(
   collection: CollectionWithRelations
 ): Promise<Buffer> {
   try {
-    const width = collection.dimensions.width || 512;
-    const height = collection.dimensions.height || 512;
+    console.log(`Generating image for token #${token.tokenNumber}`);
+    console.log('Traits to process:', token.traits.map(t => t.name));
 
-    // Create a blank canvas with transparent background
+    const width = collection.dimensions.width;
+    const height = collection.dimensions.height;
+    
+    // Create base canvas
     let composite = sharp({
       create: {
         width,
@@ -281,7 +294,6 @@ async function generateTokenImage(
       }
     });
 
-    // Sort traits by attribute order to ensure correct layering
     const sortedTraits = [...token.traits].sort((a, b) => {
       const attrA = collection.attributes.find(attr =>
         attr.traits.some(t => t.id === a.id)
@@ -292,53 +304,47 @@ async function generateTokenImage(
       return (attrA?.order || 0) - (attrB?.order || 0);
     });
 
-    // Prepare all trait images first
-    const traitBuffers = await Promise.all(
-      sortedTraits.map(async (trait) => {
-        try {
-          return await sharp(path.join(process.cwd(), "public", trait.imagePath))
-            .resize(width, height, {
-              fit: collection.pixelated ? 'fill' : 'contain',
-              position: 'center',
-              background: { r: 0, g: 0, b: 0, alpha: 0 }
-            })
-            .toBuffer();
-        } catch (error) {
-          console.error(`Error processing trait image: ${trait.imagePath}`, error);
-          return null;
-        }
-      })
-    );
+    // Process trait images sequentially
+    let compositeBuffer = await composite.png().toBuffer();
 
-    // Filter out any failed trait images
-    const validTraitBuffers = traitBuffers.filter((buffer): buffer is Buffer => buffer !== null);
+    for (const trait of sortedTraits) {
+      try {
+        const imageUrl = await getS3Url(trait.imagePath);
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error(`Failed to fetch image: ${imageUrl}`);
+        
+        const buffer = await response.arrayBuffer();
+        
+        // Create a new Sharp instance for the trait image
+        const traitImage = sharp(Buffer.from(buffer));
+        const resizedBuffer = await traitImage
+          .resize(width, height, {
+            fit: 'contain',
+            background: { r: 0, g: 0, b: 0, alpha: 0 }
+          })
+          .png()
+          .toBuffer();
 
-    // Composite all layers at once
-    if (validTraitBuffers.length > 0) {
-      composite = composite.composite(
-        validTraitBuffers.map(buffer => ({
-          input: buffer,
-          top: 0,
-          left: 0,
-          blend: 'over' // Use 'over' blend mode to properly handle transparency
-        }))
-      );
+        // Create a new Sharp instance for compositing
+        compositeBuffer = await sharp(compositeBuffer)
+          .composite([{
+            input: resizedBuffer,
+            top: 0,
+            left: 0,
+            blend: 'over'
+          }])
+          .png()
+          .toBuffer();
+
+      } catch (error) {
+        console.error(`Error processing trait ${trait.name}:`, error);
+        throw error; // Re-throw to handle the error in the batch processing
+      }
     }
 
-    // Generate final image
-    return await composite.png().toBuffer();
+    return compositeBuffer;
   } catch (error) {
-    console.error("Error generating token image:", error);
-    // Return a fallback image in case of error
-    return await sharp({
-      create: {
-        width: collection.dimensions.width || 512,
-        height: collection.dimensions.height || 512,
-        channels: 4,
-        background: { r: 255, g: 0, b: 0, alpha: 1 } // Red square to indicate error
-      }
-    })
-      .png()
-      .toBuffer();
+    console.error(`Error generating image for token #${token.tokenNumber}:`, error);
+    throw error;
   }
 } 

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { getTraitImageUrl } from "@/lib/utils";
 
 interface Trait {
   id: string;
@@ -108,25 +109,26 @@ export default function TokensPage({ params }: { params: { id: string } }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [newTokenAmount, setNewTokenAmount] = useState<number>(0);
-  const [maxPossibleCombinations, setMaxPossibleCombinations] =
-    useState<number>(0);
+  const [maxPossibleCombinations, setMaxPossibleCombinations] = useState<number>(0);
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [debouncedTokenAmount, setDebouncedTokenAmount] = useState<number>(0);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const pageSize = 20; // Number of tokens to load per page
+  const pageSize = 20;
   const loadMoreRef = useRef(null);
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedTokens, setSelectedTokens] = useState<Set<number>>(new Set());
+  const [traitUrls, setTraitUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (isConnected && address) {
-      fetchTokens();
-      fetchAttributes();
-      fetchCollection();
+    if (!isConnected || !address) {
+      return;
     }
+    fetchTokens();
+    fetchAttributes();
+    fetchCollection();
   }, [address, isConnected, params.id]);
 
   useEffect(() => {
@@ -183,6 +185,17 @@ export default function TokensPage({ params }: { params: { id: string } }) {
     fetchTokens(1);
   }, [searchQuery, selectedTraits]);
 
+  useEffect(() => {
+    tokens.forEach(token => {
+      token.traits.forEach(async trait => {
+        if (!traitUrls[trait.imagePath]) {
+          const url = await getTraitImageUrl(trait.imagePath);
+          setTraitUrls(prev => ({ ...prev, [trait.imagePath]: url }));
+        }
+      });
+    });
+  }, [tokens]);
+
   const fetchCollection = async () => {
     try {
       const response = await fetch(
@@ -199,6 +212,10 @@ export default function TokensPage({ params }: { params: { id: string } }) {
 
   const fetchTokens = async (pageNumber = 1) => {
     try {
+      if (!address) {
+        throw new Error("Not connected");
+      }
+
       if (pageNumber === 1) {
         setIsLoading(true);
       } else {
@@ -207,7 +224,7 @@ export default function TokensPage({ params }: { params: { id: string } }) {
 
       const searchParams = new URLSearchParams({
         preview: "true",
-        address: address || "",
+        address: address,
         page: pageNumber.toString(),
         pageSize: pageSize.toString(),
       });
@@ -225,7 +242,12 @@ export default function TokensPage({ params }: { params: { id: string } }) {
       const response = await fetch(
         `/api/collections/${params.id}/tokens?${searchParams.toString()}`
       );
-      if (!response.ok) throw new Error("Failed to fetch tokens");
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to fetch tokens");
+      }
+
       const data = await response.json();
 
       if (pageNumber === 1) {
@@ -234,14 +256,14 @@ export default function TokensPage({ params }: { params: { id: string } }) {
         setTokens((prev) => [...prev, ...data.tokens]);
       }
 
-      setHasMore(data.hasMore && !searchQuery); // Disable infinite scroll when searching
+      setHasMore(data.hasMore && !searchQuery);
       setIsLoading(false);
       setIsLoadingMore(false);
     } catch (error) {
       console.error("Error:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch tokens",
+        description: error instanceof Error ? error.message : "Failed to fetch tokens",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -251,17 +273,26 @@ export default function TokensPage({ params }: { params: { id: string } }) {
 
   const fetchAttributes = async () => {
     try {
+      if (!address) {
+        throw new Error("Not connected");
+      }
+
       const response = await fetch(
         `/api/collections/${params.id}/attributes?address=${address}`
       );
-      if (!response.ok) throw new Error("Failed to fetch attributes");
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to fetch attributes");
+      }
+
       const data = await response.json();
       setAttributes(data);
     } catch (error) {
       console.error("Error:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch attributes",
+        description: error instanceof Error ? error.message : "Failed to fetch attributes",
         variant: "destructive",
       });
     }
@@ -481,7 +512,12 @@ export default function TokensPage({ params }: { params: { id: string } }) {
   };
 
   if (!isConnected || !address) {
-    return null;
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
+        <h2 className="text-xl font-semibold">Connect Wallet</h2>
+        <p className="text-muted-foreground">Please connect your wallet to view tokens</p>
+      </div>
+    );
   }
 
   return (
@@ -661,7 +697,7 @@ export default function TokensPage({ params }: { params: { id: string } }) {
                   .map((trait) => (
                     <div key={trait.id} className="absolute inset-0">
                       <img
-                        src={`/${trait.imagePath}`}
+                        src={traitUrls[trait.imagePath] || ''}
                         alt={trait.name}
                         className={
                           collection?.pixelated
@@ -752,7 +788,7 @@ export default function TokensPage({ params }: { params: { id: string } }) {
                   .map((trait) => (
                     <div key={trait.id} className="absolute inset-0">
                       <img
-                        src={`/${trait.imagePath}`}
+                        src={traitUrls[trait.imagePath] || ''}
                         alt={trait.name}
                         className={
                           collection?.pixelated

@@ -1,11 +1,18 @@
-import { clsx, type ClassValue } from "clsx";
+import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { Address } from "viem";
+import { config } from "./config";
+import { getS3Url } from "@/lib/s3";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function truncateAddress(address: Address) {
-  return address.slice(0, 6) + "..." + address.slice(-4);
+export async function getTraitImageUrl(imagePath: string): Promise<string> {
+  // If the path is already a full URL, return it as is
+  if (imagePath.startsWith('http')) {
+    return imagePath;
+  }
+
+  // Generate the pre-signed S3 URL
+  return await getS3Url(imagePath);
 }

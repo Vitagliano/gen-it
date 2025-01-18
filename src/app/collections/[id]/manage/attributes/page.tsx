@@ -9,6 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Search } from "lucide-react";
 
 import debounce from "lodash/debounce";
+import { getTraitImageUrl } from "@/lib/utils";
 
 interface Trait {
   id: string;
@@ -42,6 +43,7 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
   //   "percentage"
   // );
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [traitUrls, setTraitUrls] = useState<Record<string, string>>({});
 
   const rarityMode = "percentage";
 
@@ -57,6 +59,17 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
       setEditedAttributes(JSON.parse(JSON.stringify(attributes)));
     }
   }, [attributes]);
+
+  useEffect(() => {
+    editedAttributes.forEach(attribute => {
+      attribute.traits.forEach(async trait => {
+        if (!traitUrls[trait.imagePath]) {
+          const url = await getTraitImageUrl(trait.imagePath);
+          setTraitUrls(prev => ({ ...prev, [trait.imagePath]: url }));
+        }
+      });
+    });
+  }, [editedAttributes]);
 
   const fetchCollection = async () => {
     try {
@@ -347,7 +360,7 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
                   <div key={trait.id} className="border rounded-lg w-[200px]">
                     <div className="relative aspect-square bg-[#f5f5f5] bg-[linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee),linear-gradient(45deg,#eee_25%,transparent_25%,transparent_75%,#eee_75%,#eee)] bg-[length:16px_16px] bg-[position:0_0,8px_8px]">
                       <img
-                        src={`/${trait.imagePath}`}
+                        src={traitUrls[trait.imagePath] || ''}
                         alt={trait.name}
                         className={
                           collection?.pixelated

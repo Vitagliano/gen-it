@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { GripVertical, ArrowLeft } from "lucide-react";
+import { getTraitImageUrl } from "@/lib/utils";
 
 interface Trait {
   id: string;
@@ -29,12 +30,30 @@ export default function LayersPage({ params }: { params: { id: string } }) {
   const { toast } = useToast();
   const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [draggedItem, setDraggedItem] = useState<number | null>(null);
+  const [traitImageUrls, setTraitImageUrls] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     if (isConnected && address) {
       fetchAttributes();
     }
   }, [address, isConnected, params.id]);
+
+  useEffect(() => {
+    const fetchImageUrls = async () => {
+      const urls = await Promise.all(
+        attributes.map(async (attribute) => {
+          if (attribute.traits[0]) {
+            const url = await getTraitImageUrl(attribute.traits[0].imagePath);
+            return { [attribute.id]: url };
+          }
+          return {};
+        })
+      );
+      setTraitImageUrls(Object.assign({}, ...urls));
+    };
+
+    fetchImageUrls();
+  }, [attributes]);
 
   const fetchAttributes = async () => {
     try {
@@ -220,7 +239,7 @@ export default function LayersPage({ params }: { params: { id: string } }) {
               attribute.traits[0] && (
                 <div key={attribute.id} className="absolute inset-0">
                   <img
-                    src={`/${attribute.traits[0].imagePath}`}
+                    src={traitImageUrls[attribute.id]}
                     alt={attribute.name}
                     className="object-contain w-full h-full"
                   />

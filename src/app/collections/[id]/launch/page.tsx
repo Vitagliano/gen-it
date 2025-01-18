@@ -22,25 +22,29 @@ export default function LaunchPage({ params }: { params: { id: string } }) {
       try {
         const response = await fetch(
           `/api/collections/${params.id}/tokens/export?address=${address}`,
-          { method: "GET" }
+          { 
+            method: "GET",
+            headers: {
+              'Accept': 'application/json'
+            }
+          }
         );
 
         if (!response.ok) throw new Error("Failed to check export progress");
 
         const data = await response.json();
-        setProgress(data.progress);
+        setProgress(data.progress || 0);
 
         if (data.progress === -1) {
           throw new Error("Export failed");
         }
 
-        if (data.isComplete) {
+        if (data.progress === 100 && data.isComplete) {
           setIsComplete(true);
           setIsExporting(false);
           toast({
             title: "Success",
-            description:
-              "Collection exported successfully. Click Download to save the files.",
+            description: "Collection exported successfully. Click Download to save the files.",
           });
         }
       } catch (error) {
@@ -94,17 +98,33 @@ export default function LaunchPage({ params }: { params: { id: string } }) {
 
     try {
       const response = await fetch(
-        `/api/collections/${params.id}/tokens/export?address=${address}&download=true`,
-        { method: "GET" }
+        `/api/collections/${params.id}/tokens/export?address=${address}`,
+        { 
+          method: "GET",
+          headers: {
+            'Accept': 'application/zip',
+          }
+        }
       );
 
-      if (!response.ok) throw new Error("Failed to download export");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to download export");
+      }
+
+      if (response.headers.get('Content-Type')?.includes('application/json')) {
+        const data = await response.json();
+        if (data.message) {
+          // Still in progress
+          return;
+        }
+      }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "collection-export.zip";
+      link.download = `${params.id}-export.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

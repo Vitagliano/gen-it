@@ -65,7 +65,7 @@ export default function NewCollection() {
 
   const handleFolderSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
+    if (!files || !address) return;
 
     // Get collection name from the root folder
     const collectionName = files[0].webkitRelativePath.split("/")[0];
@@ -152,7 +152,7 @@ export default function NewCollection() {
         const formData = new FormData();
         formData.append("name", attributeName);
         formData.append("order", processed.toString());
-        formData.append("address", address as string);
+        formData.append("address", address);
         files.forEach((file) => {
           formData.append("files", file);
         });
@@ -167,11 +167,19 @@ export default function NewCollection() {
           );
 
           if (!response.ok) {
-            console.error(`Failed to upload ${attributeName}`);
-            continue;
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Failed to upload ${attributeName}`);
           }
+
+          const responseData = await response.json();
+          console.log(`Successfully uploaded ${attributeName}:`, responseData);
         } catch (error) {
           console.error(`Error uploading ${attributeName}:`, error);
+          toast({
+            title: "Error",
+            description: error instanceof Error ? error.message : `Failed to upload ${attributeName}`,
+            variant: "destructive",
+          });
           continue;
         }
 
@@ -186,17 +194,18 @@ export default function NewCollection() {
         title: "Success",
         description: "Assets uploaded successfully",
       });
+
+      // Navigate to the collection page
+      router.push(`/collections/${collection.id}/manage/attributes`);
     } catch (error) {
       console.error("Error:", error);
       setUploadProgress({
         status: "error",
-        error:
-          error instanceof Error ? error.message : "Failed to upload files",
+        error: error instanceof Error ? error.message : "Failed to upload files",
       });
       toast({
         title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to upload files",
+        description: error instanceof Error ? error.message : "Failed to upload files",
         variant: "destructive",
       });
     } finally {
@@ -204,19 +213,26 @@ export default function NewCollection() {
     }
   };
 
-  const fetchAttributes = async (id: string) => {
+  const fetchAttributes = async (collectionId: string) => {
     try {
+      if (!address) return;
+      
       const response = await fetch(
-        `/api/collections/${id}/attributes?address=${address}`
+        `/api/collections/${collectionId}/attributes?address=${address}`
       );
-      if (!response.ok) throw new Error("Failed to fetch attributes");
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to fetch attributes");
+      }
+      
       const data = await response.json();
       setAttributes(data);
     } catch (error) {
       console.error("Error:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch attributes",
+        description: error instanceof Error ? error.message : "Failed to fetch attributes",
         variant: "destructive",
       });
     }

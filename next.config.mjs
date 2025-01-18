@@ -3,9 +3,14 @@ const nextConfig = {
   images: {
     remotePatterns: [
       {
+        protocol: "https",
+        hostname: "*.amazonaws.com",
+        pathname: "/**",
+      },
+      // Keep localhost for development if needed
+      {
         protocol: "http",
         hostname: "localhost",
-        port: "3000",
       },
     ],
   },
