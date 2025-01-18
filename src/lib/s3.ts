@@ -1,5 +1,5 @@
 import { env } from "@/env";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // Check for required environment variables
@@ -49,5 +49,19 @@ export const getS3Url = async (key: string) => {
   } catch (error) {
     console.error('Error getting S3 URL:', error);
     throw new Error('Failed to generate S3 URL');
+  }
+};
+
+export const deleteFromS3 = async (key: string): Promise<void> => {
+  try {
+    const command = new DeleteObjectCommand({
+      Bucket: env.NEXT_PUBLIC_AWS_BUCKET_NAME,
+      Key: key,
+    });
+
+    await s3Client.send(command);
+  } catch (error) {
+    console.error('Error deleting from S3:', error);
+    throw new Error('Failed to delete file from S3');
   }
 }; 

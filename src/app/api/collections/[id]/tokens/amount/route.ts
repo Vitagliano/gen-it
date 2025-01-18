@@ -154,20 +154,20 @@ export async function POST(
           );
         }
 
-        await prisma.token.create({
-          data: {
-            tokenNumber: startingTokenNumber + i,
-            metadata: JSON.parse(JSON.stringify(generateTokenMetadata(collection, selectedTraits))),
-            collection: {
-              connect: {
-                id: collection.id,
-              },
-            },
-            traits: {
-              connect: selectedTraits.map((id) => ({ id })),
-            },
-          },
-        });
+        // await prisma.token.create({
+        //   data: {
+        //     tokenNumber: startingTokenNumber + i,
+        //     metadata: JSON.parse(JSON.stringify(generateTokenMetadata(collection, selectedTraits))),
+        //     collection: {
+        //       connect: {
+        //         id: collection.id,
+        //       },
+        //     },
+        //     traits: {
+        //       connect: selectedTraits.map((id) => ({ id })),
+        //     },
+        //   },
+        // });
       }
     }
 

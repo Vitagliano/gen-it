@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { deleteFromS3 } from "@/lib/s3";
 
 export async function GET(
   request: Request,
@@ -119,8 +120,23 @@ export async function DELETE(
         },
       });
 
-      // 3. Delete traits
+      // 3. Delete traits and their S3 images
       for (const attribute of collection.attributes) {
+        // Delete S3 images for each trait
+        await Promise.all(
+          attribute.traits.map(async (trait) => {
+            if (trait.imagePath) {
+              try {
+                await deleteFromS3(trait.imagePath);
+              } catch (error) {
+                console.error(`Failed to delete S3 image for trait ${trait.id}:`, error);
+                // Continue with deletion even if S3 deletion fails
+              }
+            }
+          })
+        );
+
+        // Delete traits from database
         await tx.trait.deleteMany({
           where: {
             attributeId: attribute.id,

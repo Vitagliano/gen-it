@@ -168,7 +168,9 @@ export default function NewCollection() {
 
           if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || `Failed to upload ${attributeName}`);
+            throw new Error(
+              errorData.error || `Failed to upload ${attributeName}`
+            );
           }
 
           const responseData = await response.json();
@@ -177,7 +179,10 @@ export default function NewCollection() {
           console.error(`Error uploading ${attributeName}:`, error);
           toast({
             title: "Error",
-            description: error instanceof Error ? error.message : `Failed to upload ${attributeName}`,
+            description:
+              error instanceof Error
+                ? error.message
+                : `Failed to upload ${attributeName}`,
             variant: "destructive",
           });
           continue;
@@ -194,18 +199,17 @@ export default function NewCollection() {
         title: "Success",
         description: "Assets uploaded successfully",
       });
-
-      // Navigate to the collection page
-      router.push(`/collections/${collection.id}/manage/attributes`);
     } catch (error) {
       console.error("Error:", error);
       setUploadProgress({
         status: "error",
-        error: error instanceof Error ? error.message : "Failed to upload files",
+        error:
+          error instanceof Error ? error.message : "Failed to upload files",
       });
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to upload files",
+        description:
+          error instanceof Error ? error.message : "Failed to upload files",
         variant: "destructive",
       });
     } finally {
@@ -216,23 +220,24 @@ export default function NewCollection() {
   const fetchAttributes = async (collectionId: string) => {
     try {
       if (!address) return;
-      
+
       const response = await fetch(
         `/api/collections/${collectionId}/attributes?address=${address}`
       );
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || "Failed to fetch attributes");
       }
-      
+
       const data = await response.json();
       setAttributes(data);
     } catch (error) {
       console.error("Error:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to fetch attributes",
+        description:
+          error instanceof Error ? error.message : "Failed to fetch attributes",
         variant: "destructive",
       });
     }
@@ -323,7 +328,6 @@ export default function NewCollection() {
           collectionId &&
           uploadProgress.status === "done" && (
             <Button
-              className="bg-purple-600 hover:bg-purple-700"
               onClick={() => router.push(`/collections/${collectionId}/layers`)}
             >
               Next →
