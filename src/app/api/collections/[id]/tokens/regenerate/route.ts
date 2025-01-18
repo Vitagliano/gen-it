@@ -42,7 +42,13 @@ export async function POST(
         },
         traitRules: {
           include: {
-            traits: true
+            traits: {
+              select: {
+                id: true,
+                name: true,
+                attributeId: true,
+              },
+            },
           },
         },
       },
