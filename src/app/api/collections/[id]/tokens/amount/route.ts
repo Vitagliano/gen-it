@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { generateTokenMetadata } from "@/lib/token-generator";
+// import { generateTokenMetadata } from "@/lib/token-generator";
 
 interface Trait {
   id: string;
@@ -139,7 +139,7 @@ export async function POST(
       );
 
       const newTokensNeeded = tokenAmount - collection.tokens.length;
-      const startingTokenNumber = collection.tokens.length;
+      // const startingTokenNumber = collection.tokens.length;
 
       for (let i = 0; i < newTokensNeeded; i++) {
         const selectedTraits = getUniqueCombination(
