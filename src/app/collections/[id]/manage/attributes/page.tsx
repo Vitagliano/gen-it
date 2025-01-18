@@ -38,10 +38,12 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
   const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [editedAttributes, setEditedAttributes] = useState<Attribute[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [rarityMode, setRarityMode] = useState<"percentage" | "weight">(
-    "percentage"
-  );
+  // const [rarityMode, setRarityMode] = useState<"percentage" | "weight">(
+  //   "percentage"
+  // );
   const [isRegenerating, setIsRegenerating] = useState(false);
+
+  const rarityMode = "percentage";
 
   useEffect(() => {
     if (isConnected && address) {
@@ -299,6 +301,16 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
           </p>
         </div>
         <div className="flex items-center gap-4">
+          {/* <Button
+            variant="outline"
+            onClick={() =>
+              setRarityMode((prev) =>
+                prev === "percentage" ? "weight" : "percentage"
+              )
+            }
+          >
+            {rarityMode === "percentage" ? "Switch to Weight" : "Switch to Percentage"}
+          </Button> */}
           <Button onClick={regenerateTokens} disabled={isRegenerating}>
             {isRegenerating ? "Regenerating..." : "Regenerate Tokens"}
           </Button>
