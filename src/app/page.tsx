@@ -18,7 +18,7 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
       <div className="max-w-3xl space-y-6">
-        <h1 className="text-6xl font-bold">Start3r</h1>
+        <h1 className="text-6xl font-bold">Gen It</h1>
         <p className="text-xl text-muted-foreground">
           Create, manage, and launch your NFT collections with ease
         </p>
