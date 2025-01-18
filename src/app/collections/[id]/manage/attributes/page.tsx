@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAccount } from "wagmi";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import debounce from "lodash/debounce";
 
 interface Trait {
   id: string;
@@ -44,10 +45,10 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
   const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [editedAttributes, setEditedAttributes] = useState<Attribute[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [hasChanges, setHasChanges] = useState(false);
   const [rarityMode, setRarityMode] = useState<"percentage" | "weight">(
     "percentage"
   );
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   useEffect(() => {
     if (isConnected && address) {
@@ -61,14 +62,6 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
       setEditedAttributes(JSON.parse(JSON.stringify(attributes)));
     }
   }, [attributes]);
-
-  useEffect(() => {
-    if (attributes.length > 0 && editedAttributes.length > 0) {
-      const hasChanges =
-        JSON.stringify(attributes) !== JSON.stringify(editedAttributes);
-      setHasChanges(hasChanges);
-    }
-  }, [attributes, editedAttributes]);
 
   const fetchCollection = async () => {
     try {
@@ -179,6 +172,77 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
     );
   };
 
+  const regenerateTokens = async () => {
+    if (isRegenerating) return;
+    
+    setIsRegenerating(true);
+    try {
+      const response = await fetch(
+        `/api/collections/${params.id}/tokens?address=${address}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            address,
+            attributes: editedAttributes.map((attr) => ({
+              id: attr.id,
+              order: attr.order,
+              isEnabled: attr.traits.some((t) => t.isEnabled),
+            })),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to regenerate tokens");
+      }
+
+      toast({
+        title: "Success",
+        description: "Tokens regenerated successfully",
+      });
+    } catch (error) {
+      console.error("Error regenerating tokens:", error);
+      toast({
+        title: "Error",
+        description: "Failed to regenerate tokens",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  // Debounced function to update trait rarity
+  const debouncedUpdateTrait = useCallback(
+    debounce(async (attributeId: string, traitId: string, newRarity: number) => {
+      try {
+        await fetch(
+          `/api/collections/${params.id}/attributes/${attributeId}/traits/${traitId}?address=${address}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              rarity: newRarity,
+            }),
+          }
+        );
+      } catch (error) {
+        console.error("Error updating trait rarity:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update trait rarity",
+          variant: "destructive",
+        });
+      }
+    }, 500),
+    [params.id, address]
+  );
+
   const handleUpdateTraitRarity = (
     attributeId: string,
     traitId: string,
@@ -186,6 +250,7 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
   ) => {
     const newRarity = Math.min(100, Math.max(0, newValue));
     updateTraitRarities(attributeId, traitId, newRarity);
+    debouncedUpdateTrait(attributeId, traitId, newRarity);
   };
 
   const handleToggleTrait = (attributeId: string, traitId: string) => {
@@ -213,81 +278,6 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
     );
   };
 
-  const handleSaveChanges = async () => {
-    try {
-      // Find attributes with changed traits
-      const changedAttributes = editedAttributes.filter((editedAttr) => {
-        const originalAttr = attributes.find((a) => a.id === editedAttr.id);
-        return (
-          JSON.stringify(originalAttr?.traits) !==
-          JSON.stringify(editedAttr.traits)
-        );
-      });
-
-      // Update each changed attribute's traits
-      for (const attribute of changedAttributes) {
-        for (const trait of attribute.traits) {
-          await fetch(
-            `/api/collections/${params.id}/attributes/${attribute.id}/traits/${trait.id}?address=${address}`,
-            {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                rarity: trait.rarity,
-                isEnabled: trait.isEnabled,
-              }),
-            }
-          );
-        }
-      }
-
-      // Regenerate tokens with updated rarities
-      const regenerateResponse = await fetch(
-        `/api/collections/${params.id}/tokens?address=${address}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            address,
-            attributes: editedAttributes.map((attr) => ({
-              id: attr.id,
-              order: attr.order,
-              isEnabled: attr.traits.some((t) => t.isEnabled),
-            })),
-          }),
-        }
-      );
-
-      if (!regenerateResponse.ok) {
-        throw new Error("Failed to regenerate tokens");
-      }
-
-      setAttributes(editedAttributes);
-      setHasChanges(false);
-
-      toast({
-        title: "Success",
-        description: "Changes saved and tokens regenerated successfully",
-      });
-    } catch (error) {
-      console.error("Error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save changes and regenerate tokens",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDiscard = () => {
-    setEditedAttributes(JSON.parse(JSON.stringify(attributes)));
-    setHasChanges(false);
-  };
-
   const filteredAttributes = editedAttributes.filter(
     (attribute) =>
       attribute.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -313,18 +303,12 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          {/* <Button
-            variant="outline"
-            onClick={() =>
-              setRarityMode((mode) =>
-                mode === "percentage" ? "weight" : "percentage"
-              )
-            }
+          <Button 
+            onClick={regenerateTokens}
+            disabled={isRegenerating}
           >
-            {rarityMode === "percentage"
-              ? "Using Percentages (%)"
-              : "Using Weights (#)"}
-          </Button> */}
+            {isRegenerating ? "Regenerating..." : "Regenerate Tokens"}
+          </Button>
         </div>
       </div>
 
@@ -457,25 +441,6 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
           </div>
         ))}
       </div>
-
-      {hasChanges && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            You have unsaved changes
-          </p>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" onClick={handleDiscard}>
-              Discard Changes
-            </Button>
-            <Button
-              onClick={handleSaveChanges}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              Save & Apply Settings
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Collection, Template, Trait, Attribute } from '@prisma/client';
+import { Collection, Template, Trait, Attribute, TraitRule } from '@prisma/client';
 import crypto from 'crypto';
 
 interface TokenTraits {
@@ -46,12 +46,77 @@ function seededWeightedRandom<T extends { id: string; rarity: number }>(
 }
 
 /**
+ * Checks if a trait combination is valid according to the rules
+ */
+function isValidTraitCombination(
+  selectedTraits: string[],
+  rules: (TraitRule & { traitIds: string[] })[]
+): boolean {
+  for (const rule of rules) {
+    const [firstTraitId, ...otherTraitIds] = rule.traitIds;
+    const hasFirstTrait = selectedTraits.includes(firstTraitId);
+
+    switch (rule.ruleType) {
+      case "EXCLUDE":
+        // If the first trait is selected, none of the other traits should be selected
+        if (hasFirstTrait && otherTraitIds.some(id => selectedTraits.includes(id))) {
+          return false;
+        }
+        break;
+
+      case "ONLY_TOGETHER":
+        // If the first trait is selected, at least one of the other traits must be selected
+        if (hasFirstTrait && !otherTraitIds.some(id => selectedTraits.includes(id))) {
+          return false;
+        }
+        break;
+
+      case "ALWAYS_TOGETHER":
+        // If the first trait is selected, all other traits must be selected
+        if (hasFirstTrait && !otherTraitIds.every(id => selectedTraits.includes(id))) {
+          return false;
+        }
+        break;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Checks if a trait should be excluded based on the current selection
+ */
+function shouldExcludeTrait(
+  traitId: string,
+  selectedTraits: string[],
+  rules: (TraitRule & { traitIds: string[] })[]
+): boolean {
+  for (const rule of rules) {
+    const [firstTraitId, ...otherTraitIds] = rule.traitIds;
+
+    if (rule.ruleType === "EXCLUDE") {
+      // If this trait is in otherTraitIds and firstTrait is selected, exclude it
+      if (otherTraitIds.includes(traitId) && selectedTraits.includes(firstTraitId)) {
+        return true;
+      }
+      // If this trait is firstTrait and any of otherTraits are selected, exclude it
+      if (traitId === firstTraitId && otherTraitIds.some(id => selectedTraits.includes(id))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
  * Generates a unique combination of traits for a token based on the collection seed
  */
 function generateTokenTraits(
   collection: Collection & {
     attributes: (Attribute & { traits: Trait[] })[];
     templates: (Template & { attributes: { attributeId: string; enabled: boolean }[] })[];
+    traitRules: (TraitRule & { traitIds: string[] })[];
   },
   tokenNumber: number
 ): TokenTraits | null {
@@ -66,31 +131,61 @@ function generateTokenTraits(
   
   if (!template) return null;
 
-  // Generate traits based on template's enabled attributes
-  const selectedTraits = collection.attributes
-    .filter(attr => {
+  // Try to generate valid trait combinations up to a maximum number of attempts
+  const MAX_ATTEMPTS = 100;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const selectedTraits: string[] = [];
+
+    // Generate traits based on template's enabled attributes
+    const enabledAttributes = collection.attributes.filter(attr => {
       const templateAttribute = template.attributes.find(
         ta => ta.attributeId === attr.id
       );
       return templateAttribute?.enabled;
-    })
-    .map((attr, attrIndex) => {
-      if (!attr.traits.length) return null;
-      
-      const selectedTrait = seededWeightedRandom(
-        attr.traits,
-        `${collection.seed}-${tokenNumber}-${attrIndex}`,
-        tokenNumber
-      );
-      
-      return selectedTrait?.id || null;
-    })
-    .filter(Boolean) as string[];
+    });
 
-  return {
-    tokenNumber,
-    traitIds: selectedTraits,
-  };
+    // Process attributes in order
+    for (const attr of enabledAttributes) {
+      if (!attr.traits.length) continue;
+
+      // Generate a random number to decide whether to include this attribute
+      const shouldInclude = seededRandom(
+        `${collection.seed}-${tokenNumber}-${attr.id}-include-${attempt}`,
+        tokenNumber
+      ) > 0.1; // 90% chance to include the attribute
+
+      if (shouldInclude) {
+        // Filter out traits that should be excluded based on current selection
+        const availableTraits = attr.traits.filter(
+          trait => !shouldExcludeTrait(trait.id, selectedTraits, collection.traitRules)
+        );
+
+        if (availableTraits.length > 0) {
+          const selectedTrait = seededWeightedRandom(
+            availableTraits,
+            `${collection.seed}-${tokenNumber}-${attr.id}-${attempt}`,
+            tokenNumber
+          );
+
+          if (selectedTrait) {
+            selectedTraits.push(selectedTrait.id);
+          }
+        }
+      }
+    }
+
+    // Check if the combination is valid according to the rules
+    if (isValidTraitCombination(selectedTraits, collection.traitRules)) {
+      return {
+        tokenNumber,
+        traitIds: selectedTraits,
+      };
+    }
+  }
+
+  // If we couldn't generate a valid combination after max attempts, return null
+  console.warn(`Could not generate valid trait combination for token ${tokenNumber} after ${MAX_ATTEMPTS} attempts`);
+  return null;
 }
 
 /**

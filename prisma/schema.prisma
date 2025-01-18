@@ -63,8 +63,6 @@ model Trait {
   attributeId  String       @db.ObjectId
   tokens       Token[]      @relation(fields: [tokenIds], references: [id])
   tokenIds     String[]     @db.ObjectId
-  traitRules   TraitRule[] @relation("TraitRuleTraits", fields: [traitRuleIds], references: [id])
-  traitRuleIds String[]     @db.ObjectId
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 }
@@ -108,8 +106,7 @@ model TemplateAttribute {
 model TraitRule {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
   ruleType     String     
-  traits       Trait[]    @relation("TraitRuleTraits", fields: [traitIds], references: [id])
-  traitIds     String[]   @db.ObjectId
+  traitIds     String[]   @db.ObjectId  // The first ID in the array is the restricted trait
   collection   Collection @relation(fields: [collectionId], references: [id])
   collectionId String     @db.ObjectId
   createdAt    DateTime   @default(now())

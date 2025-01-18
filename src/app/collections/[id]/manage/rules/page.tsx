@@ -21,6 +21,14 @@ import { Attribute, Trait } from "@prisma/client";
 import { Loader2, Search, MoreHorizontal } from "lucide-react";
 import { useAccount } from "wagmi";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useToast } from "@/hooks/use-toast"
+
 type RuleType = "EXCLUDE" | "ONLY_TOGETHER" | "ALWAYS_TOGETHER";
 
 interface TraitRule {
@@ -49,6 +57,7 @@ const RULE_TYPE_LABELS: Record<RuleType, string> = {
 export default function RulesPage({ params }: { params: { id: string } }) {
   const { address } = useAccount();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [firstSelection, setFirstSelection] = useState<{
     type: "trait" | "attribute";
@@ -471,13 +480,59 @@ export default function RulesPage({ params }: { params: { id: string } }) {
                           </div>
                         </div>
 
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="opacity-0 group-hover:opacity-100 h-8 w-8"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 group-hover:opacity-100 h-8 w-8"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={async (e) => {
+                                e.stopPropagation()
+                                try {
+                                  const res = await fetch(
+                                    `/api/collections/${params.id}/rules?ruleId=${rule.id}`,
+                                    {
+                                      method: "DELETE",
+                                      headers: {
+                                        "x-address": address || "",
+                                      },
+                                    }
+                                  )
+
+                                  if (!res.ok) {
+                                    throw new Error("Failed to delete rule")
+                                  }
+
+                                  await queryClient.invalidateQueries({
+                                    queryKey: ["rules", params.id],
+                                  })
+
+                                  toast({
+                                    title: "Success",
+                                    description: "Rule deleted successfully",
+                                  })
+                                } catch (error) {
+                                  console.error("Failed to delete rule:", error)
+                                  toast({
+                                    title: "Error",
+                                    description: "Failed to delete rule",
+                                    variant: "destructive",
+                                  })
+                                }
+                              }}
+                            >
+                              Delete Rule
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     ))}
                   </div>

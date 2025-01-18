@@ -66,6 +66,7 @@ export async function POST(
             attributes: true,
           },
         },
+        traitRules: true,
       },
     });
 
@@ -196,6 +197,7 @@ export async function GET(
             attributes: true,
           },
         },
+        traitRules: true,
       },
     });
 

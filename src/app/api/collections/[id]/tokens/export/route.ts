@@ -12,7 +12,7 @@ interface Dimensions {
 }
 
 type CollectionWithRelations = Omit<Collection, 'dimensions'> & {
-  attributes: (Attribute & { 
+  attributes: (Attribute & {
     traits: Trait[];
     order: number;
   })[];
@@ -179,9 +179,9 @@ async function generateExport(collectionId: string, address: string) {
 
     // Parse dimensions from JSON and create properly typed collection object
     let dimensions: Dimensions = { width: 512, height: 512 };
-    
+
     if (
-      typeof collectionData.dimensions === 'object' && 
+      typeof collectionData.dimensions === 'object' &&
       collectionData.dimensions !== null &&
       'width' in collectionData.dimensions &&
       'height' in collectionData.dimensions &&
@@ -271,7 +271,7 @@ async function generateTokenImage(
   try {
     const width = collection.dimensions.width || 512;
     const height = collection.dimensions.height || 512;
-    
+
     // Create a blank canvas with transparent background
     let composite = sharp({
       create: {
@@ -284,10 +284,10 @@ async function generateTokenImage(
 
     // Sort traits by attribute order to ensure correct layering
     const sortedTraits = [...token.traits].sort((a, b) => {
-      const attrA = collection.attributes.find(attr => 
+      const attrA = collection.attributes.find(attr =>
         attr.traits.some(t => t.id === a.id)
       );
-      const attrB = collection.attributes.find(attr => 
+      const attrB = collection.attributes.find(attr =>
         attr.traits.some(t => t.id === b.id)
       );
       return (attrA?.order || 0) - (attrB?.order || 0);
@@ -339,7 +339,7 @@ async function generateTokenImage(
         background: { r: 255, g: 0, b: 0, alpha: 1 } // Red square to indicate error
       }
     })
-    .png()
-    .toBuffer();
+      .png()
+      .toBuffer();
   }
 } 
