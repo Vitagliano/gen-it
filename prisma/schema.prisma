@@ -106,9 +106,9 @@ model TemplateAttribute {
 model TraitRule {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
   ruleType     String     
-  traitIds     String[]   @db.ObjectId  // The first ID in the array is the restricted trait
+  traitIds     String[]   @db.ObjectId
   collection   Collection @relation(fields: [collectionId], references: [id])
   collectionId String     @db.ObjectId
   createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  updatedAt    DateTime   @default(now())
 }

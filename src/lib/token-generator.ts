@@ -67,21 +67,18 @@ function isValidTraitCombination(
 
     switch (rule.ruleType) {
       case "EXCLUDE":
-        // If the first trait is selected, none of the other traits should be selected
         if (hasFirstTrait && otherTraitIds.some(id => selectedTraits.includes(id))) {
           return false;
         }
         break;
 
       case "ONLY_TOGETHER":
-        // If the first trait is selected, at least one of the other traits must be selected
         if (hasFirstTrait && !otherTraitIds.some(id => selectedTraits.includes(id))) {
           return false;
         }
         break;
 
       case "ALWAYS_TOGETHER":
-        // If the first trait is selected, all other traits must be selected
         if (hasFirstTrait && !otherTraitIds.every(id => selectedTraits.includes(id))) {
           return false;
         }
@@ -104,11 +101,9 @@ function shouldExcludeTrait(
     const [firstTraitId, ...otherTraitIds] = rule.traitIds;
 
     if (rule.ruleType === "EXCLUDE") {
-      // If this trait is in otherTraitIds and firstTrait is selected, exclude it
       if (otherTraitIds.includes(traitId) && selectedTraits.includes(firstTraitId)) {
         return true;
       }
-      // If this trait is firstTrait and any of otherTraits are selected, exclude it
       if (traitId === firstTraitId && otherTraitIds.some(id => selectedTraits.includes(id))) {
         return true;
       }
@@ -131,7 +126,6 @@ function generateTokenTraits(
 ): TokenTraits | null {
   if (!collection.seed) return null;
 
-  // Select template using seeded random
   const template = seededWeightedRandom(
     collection.templates,
     `${collection.seed}-template`,
@@ -140,12 +134,10 @@ function generateTokenTraits(
   
   if (!template) return null;
 
-  // Try to generate valid trait combinations up to a maximum number of attempts
   const MAX_ATTEMPTS = 100;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const selectedTraits: string[] = [];
 
-    // Generate traits based on template's enabled attributes
     const enabledAttributes = collection.attributes.filter(attr => {
       const templateAttribute = template.attributes.find(
         ta => ta.attributeId === attr.id
@@ -153,18 +145,15 @@ function generateTokenTraits(
       return templateAttribute?.enabled;
     });
 
-    // Process attributes in order
     for (const attr of enabledAttributes) {
       if (!attr.traits.length) continue;
 
-      // Generate a random number to decide whether to include this attribute
       const shouldInclude = seededRandom(
         `${collection.seed}-${tokenNumber}-${attr.id}-include-${attempt}`,
         tokenNumber
       ) > 0.1; // 90% chance to include the attribute
 
       if (shouldInclude) {
-        // Filter out traits that should be excluded based on current selection
         const availableTraits = attr.traits.filter(
           trait => !shouldExcludeTrait(trait.id, selectedTraits, collection.traitRules)
         );
@@ -183,7 +172,6 @@ function generateTokenTraits(
       }
     }
 
-    // Check if the combination is valid according to the rules
     if (isValidTraitCombination(selectedTraits, collection.traitRules)) {
       return {
         tokenNumber,
@@ -192,7 +180,6 @@ function generateTokenTraits(
     }
   }
 
-  // If we couldn't generate a valid combination after max attempts, return null
   console.warn(`Could not generate valid trait combination for token ${tokenNumber} after ${MAX_ATTEMPTS} attempts`);
   return null;
 }

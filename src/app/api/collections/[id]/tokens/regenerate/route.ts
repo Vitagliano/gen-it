@@ -40,17 +40,7 @@ export async function POST(
             attributes: true,
           },
         },
-        traitRules: {
-          include: {
-            traits: {
-              select: {
-                id: true,
-                name: true,
-                attributeId: true,
-              },
-            },
-          },
-        },
+        traitRules: true,
       },
     });
 
@@ -68,7 +58,6 @@ export async function POST(
     console.log('Temporary seed:', tempSeed);
 
     // Store original seed and update collection with temp seed
-    // const originalSeed = collection.seed;
     collection.seed = tempSeed;
 
     // Regenerate each selected token
