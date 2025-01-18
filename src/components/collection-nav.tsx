@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Layers, Sliders, Settings, Rocket } from "lucide-react";
+import { Layers, Sliders, Settings, Rocket, ArrowLeft } from "lucide-react";
 
 interface CollectionNavProps {
   collectionId: string;
@@ -9,7 +9,8 @@ interface CollectionNavProps {
 
 export function CollectionNav({ collectionId }: CollectionNavProps) {
   const pathname = usePathname();
-
+  const router = useRouter();
+  
   const items = [
     {
       title: "Tokens",
@@ -35,6 +36,10 @@ export function CollectionNav({ collectionId }: CollectionNavProps) {
 
   return (
     <div className="flex items-center gap-2 border-b px-4 h-14">
+      <Button variant="ghost" onClick={() => router.push(`/collections/`)}>
+        <ArrowLeft className="w-4 h-4 mr-2" />
+        Back
+      </Button>
       {items.map((item) => {
         const Icon = item.icon;
         const isActive = pathname.startsWith(item.href);

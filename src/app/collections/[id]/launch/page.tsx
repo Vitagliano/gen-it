@@ -41,7 +41,8 @@ export default function LaunchPage({ params }: { params: { id: string } }) {
           setIsExporting(false);
           toast({
             title: "Success",
-            description: "Collection exported successfully. Click Download to save the files.",
+            description:
+              "Collection exported successfully. Click Download to save the files.",
           });
         }
       } catch (error) {
@@ -61,19 +62,22 @@ export default function LaunchPage({ params }: { params: { id: string } }) {
 
   const handleExport = async () => {
     if (!address) return;
-    
+
     try {
       setIsExporting(true);
       setProgress(0);
       setIsComplete(false);
 
-      const response = await fetch(`/api/collections/${params.id}/tokens/export`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ address }),
-      });
+      const response = await fetch(
+        `/api/collections/${params.id}/tokens/export`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ address }),
+        }
+      );
 
       if (!response.ok) throw new Error("Failed to start export");
     } catch (error) {
@@ -100,9 +104,9 @@ export default function LaunchPage({ params }: { params: { id: string } }) {
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.download = 'collection-export.zip';
+      link.download = "collection-export.zip";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -120,32 +124,32 @@ export default function LaunchPage({ params }: { params: { id: string } }) {
   return (
     <div className="flex flex-col flex-1 p-4">
       <div className="flex items-center gap-4 mb-8">
-        <Button variant="ghost" onClick={() => router.push(`/collections/`)}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
         <h1 className="text-3xl font-bold">Launch Collection</h1>
       </div>
 
       <div className="border rounded-lg p-6">
         <h2 className="text-lg font-semibold mb-4">Launch Configuration</h2>
         <p className="text-muted-foreground mb-6">
-          Export your collection to download all token images and metadata files. This will generate a zip file containing PNG images and JSON metadata for each token.
+          Export your collection to download all token images and metadata
+          files. This will generate a zip file containing PNG images and JSON
+          metadata for each token.
         </p>
-        
+
         <div className="space-y-4">
           {(isExporting || isComplete) && (
             <div className="w-full">
               <Progress value={progress} className="w-full" />
               <p className="text-sm text-muted-foreground mt-2">
-                {isExporting ? `Generating files... ${progress}%` : 'Generation complete'}
+                {isExporting
+                  ? `Generating files... ${progress}%`
+                  : "Generation complete"}
               </p>
             </div>
           )}
-          
+
           <div className="flex gap-4">
-            <Button 
-              onClick={handleExport} 
+            <Button
+              onClick={handleExport}
               disabled={isExporting}
               className="w-full md:w-auto"
             >
@@ -155,12 +159,12 @@ export default function LaunchPage({ params }: { params: { id: string } }) {
                   Exporting...
                 </>
               ) : (
-                'Export Collection'
+                "Export Collection"
               )}
             </Button>
 
             {isComplete && (
-              <Button 
+              <Button
                 onClick={handleDownload}
                 className="w-full md:w-auto"
                 variant="outline"

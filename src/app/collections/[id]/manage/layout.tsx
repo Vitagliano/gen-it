@@ -36,14 +36,8 @@ export default function ManageLayout({ children, params }: ManageLayoutProps) {
     <div className="flex flex-col flex-1">
       <div className="border-b">
         <div className="flex h-16 items-center px-4">
-          <Button
-            variant="ghost"
-            onClick={() => router.push(`/collections/`)}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <div className="ml-auto flex items-center space-x-2">
+         
+          <div className="flex items-center space-x-2">
             {subNavItems.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href

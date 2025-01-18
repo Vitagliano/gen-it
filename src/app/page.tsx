@@ -1,20 +1,40 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAccount } from "wagmi";
 import { ConnectButton } from "@/components/connect-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { TokenSelector } from "@/components/token-selector";
 
 export default function Home() {
-  return (
-    <div className="flex flex-col items-center h-dvh py-16">
-      <div className="flex items-center justify-center gap-16">
-        <h1 className="text-4xl font-bold">Start3r</h1>
+  const router = useRouter();
+  const { isConnected } = useAccount();
 
-        <div className="flex flex-row items-center justify-center gap-4">
-          <ThemeSwitcher />
+  useEffect(() => {
+    if (isConnected) {
+      router.push("/collections");
+    }
+  }, [isConnected, router]);
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
+      {/* <div className="absolute top-4 right-4 flex items-center gap-4">
+        <ThemeSwitcher />
+        <ConnectButton />
+      </div> */}
+      
+      <div className="max-w-3xl space-y-6">
+        <h1 className="text-6xl font-bold">Start3r</h1>
+        <p className="text-xl text-muted-foreground">
+          Create, manage, and launch your NFT collections with ease
+        </p>
+        
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-muted-foreground">
+            Connect your wallet to get started
+          </p>
           <ConnectButton />
         </div>
-      </div>
-      <div className="flex w-full h-full items-center justify-center">
-        <TokenSelector />
       </div>
     </div>
   );

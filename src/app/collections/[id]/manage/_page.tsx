@@ -31,7 +31,7 @@ export default function ManageTemplate({ params }: { params: { id: string } }) {
 
   return (
     <div className="flex flex-col flex-1 p-4">
-      <div className="flex items-center gap-4 mb-8">
+      {/* <div className="flex items-center gap-4 mb-8">
         <Button
           variant="ghost"
           onClick={() => router.push(`/collections/`)}
@@ -40,7 +40,7 @@ export default function ManageTemplate({ params }: { params: { id: string } }) {
           Back
         </Button>
         <h1 className="text-3xl font-bold">Manage Collection</h1>
-      </div>
+      </div> */}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {managementLinks.map((link) => {

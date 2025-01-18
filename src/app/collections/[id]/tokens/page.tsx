@@ -490,13 +490,6 @@ export default function TokensPage({ params }: { params: { id: string } }) {
     <div className="flex flex-col flex-1 p-4">
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => router.push(`/collections/`)}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-3xl font-bold">Generated Tokens</h1>
-        </div>
-        <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Input
               type="number"
@@ -556,6 +549,27 @@ export default function TokensPage({ params }: { params: { id: string } }) {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        </div>
+        <div className="flex items-center gap-4 ">
+          <div className="flex items-center justify-between gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Search by token #, attribute or trait name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={selectMode}
+                onCheckedChange={setSelectMode}
+                aria-label="Select tokens"
+              />
+              <span className="text-sm">Select Tokens</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -619,26 +633,6 @@ export default function TokensPage({ params }: { params: { id: string } }) {
 
         {/* Tokens Grid */}
         <div className="md:col-span-3">
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search by token #, attribute or trait name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={selectMode}
-                onCheckedChange={setSelectMode}
-                aria-label="Select tokens"
-              />
-              <span className="text-sm">Select Tokens</span>
-            </div>
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredTokens.map((token) => (
               <div
