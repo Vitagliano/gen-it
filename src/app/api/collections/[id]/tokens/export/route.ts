@@ -40,7 +40,10 @@ interface TokenMetadata {
     trait_type: string;
     value: string;
   }>;
-  [key: string]: any; // For any additional custom metadata fields
+  [key: string]: string | undefined | Array<{
+    trait_type: string;
+    value: string;
+  }>;
 }
 
 // Store export progress and data in memory (consider using a persistent store like Redis for production)
