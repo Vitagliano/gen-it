@@ -1,1 +1,0 @@
-// This entire file can be deleted as we'll use direct S3 URLs 
