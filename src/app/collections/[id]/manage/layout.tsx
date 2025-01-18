@@ -1,8 +1,8 @@
 "use client"
 
-import { useRouter, usePathname } from "next/navigation"
+import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Shapes, Layout, ScrollText } from "lucide-react"
+import { Shapes, Layout, ScrollText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface ManageLayoutProps {
@@ -11,7 +11,6 @@ interface ManageLayoutProps {
 }
 
 export default function ManageLayout({ children, params }: ManageLayoutProps) {
-  const router = useRouter()
   const pathname = usePathname()
 
   const subNavItems = [

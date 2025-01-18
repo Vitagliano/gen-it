@@ -1,15 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
-import { ArrowLeft, Download, Loader2 } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 
 export default function LaunchPage({ params }: { params: { id: string } }) {
-  const router = useRouter();
   const { address } = useAccount();
   const { toast } = useToast();
   const [isExporting, setIsExporting] = useState(false);

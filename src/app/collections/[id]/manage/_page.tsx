@@ -1,12 +1,9 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Shapes, Layout, ScrollText } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Shapes, Layout, ScrollText } from "lucide-react"
 
 export default function ManageTemplate({ params }: { params: { id: string } }) {
-  const router = useRouter()
 
   const managementLinks = [
     {
