@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -99,7 +98,6 @@ const SelectionBar = ({
 };
 
 export default function TokensPage({ params }: { params: { id: string } }) {
-  const router = useRouter();
   const { address, isConnected } = useAccount();
   const { toast } = useToast();
   const [tokens, setTokens] = useState<Token[]>([]);
