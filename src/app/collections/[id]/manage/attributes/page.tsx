@@ -313,7 +313,7 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <Button
+          {/* <Button
             variant="outline"
             onClick={() =>
               setRarityMode((mode) =>
@@ -324,7 +324,7 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
             {rarityMode === "percentage"
               ? "Using Percentages (%)"
               : "Using Weights (#)"}
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -367,7 +367,7 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
                         }
                       />
                       <div className="absolute top-2 right-2">
-                        <DropdownMenu>
+                        {/* <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
@@ -394,7 +394,7 @@ export default function AttributesPage({ params }: { params: { id: string } }) {
                               Show in metadata
                             </DropdownMenuItem>
                           </DropdownMenuContent>
-                        </DropdownMenu>
+                        </DropdownMenu> */}
                       </div>
                     </div>
 

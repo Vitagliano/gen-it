@@ -428,7 +428,10 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
     e.dataTransfer.dropEffect = "move";
   };
 
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, index: number) => {
+  const handleDrop = async (
+    e: React.DragEvent<HTMLDivElement>,
+    index: number
+  ) => {
     e.preventDefault();
 
     if (draggedItem === null) return;
@@ -481,7 +484,8 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
                 }),
               }
             );
-            if (!response.ok) throw new Error("Failed to update attribute order");
+            if (!response.ok)
+              throw new Error("Failed to update attribute order");
           })
         );
 
@@ -535,7 +539,7 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <Button
+          {/* <Button
             variant="outline"
             onClick={() =>
               setRarityMode((mode) =>
@@ -546,7 +550,7 @@ export default function TemplatesPage({ params }: { params: { id: string } }) {
             {rarityMode === "percentage"
               ? "Using Percentages (%)"
               : "Using Weights (#)"}
-          </Button>
+          </Button> */}
           <Button onClick={() => setIsCreating(true)}>Create Template</Button>
         </div>
       </div>
