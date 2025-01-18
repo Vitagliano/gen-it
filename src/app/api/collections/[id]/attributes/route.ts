@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 import { uploadToS3 } from "@/lib/s3";
 
 export async function GET(
@@ -99,13 +98,13 @@ export async function POST(
       files.map(async (file) => {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        
+
         // Clean filename and ensure it's safe
         const cleanFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '-');
         const s3Key = `collections/${params.id}/${name}/${cleanFilename}`;
-        
+
         // Upload to S3
-        const imageUrl = await uploadToS3(buffer, s3Key);
+        await uploadToS3(buffer, s3Key);
 
         // Create trait with cleaned name
         const traitName = cleanFilename.replace(/\.[^/.]+$/, ""); // Remove file extension
@@ -124,10 +123,10 @@ export async function POST(
       })
     );
 
-    return NextResponse.json({ 
-      attribute, 
+    return NextResponse.json({
+      attribute,
       traits,
-      message: "Upload successful" 
+      message: "Upload successful"
     });
   } catch (error) {
     console.error("Error creating attribute:", error);

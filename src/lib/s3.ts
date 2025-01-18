@@ -5,7 +5,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 // Check for required environment variables
 
 const missingVars = Object.entries(env)
-  .filter(([_, value]) => !value)
+  .filter(([, value]) => !value)
   .map(([key]) => key);
 
 if (missingVars.length > 0) {

@@ -172,8 +172,8 @@ async function generateExport(collectionId: string, address: string) {
     const collection: CollectionWithRelations = {
       ...collectionData,
       dimensions: {
-        width: Number((collectionData.dimensions as any)?.width) || 512,
-        height: Number((collectionData.dimensions as any)?.height) || 512,
+        width: Number((collectionData.dimensions as Record<string, number>)?.width) || 512,
+        height: Number((collectionData.dimensions as Record<string, number>)?.height) || 512,
       }
     };
     console.log('Collection dimensions:', collection.dimensions);
@@ -285,7 +285,7 @@ async function generateTokenImage(
     const height = collection.dimensions.height;
     
     // Create base canvas
-    let composite = sharp({
+    const composite = sharp({
       create: {
         width,
         height,

@@ -1,6 +1,5 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { config } from "./config";
 import { getS3Url } from "@/lib/s3";
 
 export function cn(...inputs: ClassValue[]) {
