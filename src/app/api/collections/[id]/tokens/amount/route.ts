@@ -157,7 +157,7 @@ export async function POST(
         await prisma.token.create({
           data: {
             tokenNumber: startingTokenNumber + i,
-            metadata: generateTokenMetadata(collection, selectedTraits),
+            metadata: JSON.parse(JSON.stringify(generateTokenMetadata(collection, selectedTraits))),
             collection: {
               connect: {
                 id: collection.id,

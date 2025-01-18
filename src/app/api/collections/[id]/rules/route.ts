@@ -119,7 +119,7 @@ export async function POST(
     // Return the rule with traits
     const ruleWithTraits = {
       ...rule,
-      traits: traitIds.map(id => traits.find(t => t.id === id)).filter(Boolean)
+      traits: traitIds.map((id: string) => traits.find(t => t.id === id)).filter(Boolean)
     }
 
     return NextResponse.json(ruleWithTraits)

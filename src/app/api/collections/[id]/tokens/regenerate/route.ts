@@ -40,6 +40,11 @@ export async function POST(
             attributes: true,
           },
         },
+        traitRules: {
+          include: {
+            traits: true
+          },
+        },
       },
     });
 
@@ -90,7 +95,7 @@ export async function POST(
           const updatedToken = await tx.token.update({
             where: { id: token.id },
             data: {
-              metadata: generateTokenMetadata(collection, tokenTraits.traitIds),
+              metadata: JSON.parse(JSON.stringify(generateTokenMetadata(collection, tokenTraits.traitIds))),
               traits: {
                 set: [],
                 connect: tokenTraits.traitIds.map(id => ({ id })),
