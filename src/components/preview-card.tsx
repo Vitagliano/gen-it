@@ -32,7 +32,9 @@ export function PreviewCard({
       }
       for (const attr of sortedAttributes) {
         if (attr.traits?.[0]) {
-          urls[attr.traits[0].imagePath] = await getTraitImageUrl(attr.traits[0].imagePath);
+          urls[attr.traits[0].imagePath] = await getTraitImageUrl(
+            attr.traits[0].imagePath
+          );
         }
       }
       setTraitUrls(urls);
@@ -46,15 +48,19 @@ export function PreviewCard({
         {token ? (
           token.traits
             .sort((a, b) => {
-              const attrA = attributes.find((attr) => attr.id === a.attributeId);
-              const attrB = attributes.find((attr) => attr.id === b.attributeId);
+              const attrA = attributes.find(
+                (attr) => attr.id === a.attributeId
+              );
+              const attrB = attributes.find(
+                (attr) => attr.id === b.attributeId
+              );
               return (attrA?.order || 0) - (attrB?.order || 0);
             })
             .map((trait) => (
               <div key={trait.id} className="absolute inset-0">
                 <div className="relative w-full h-full">
                   <Image
-                    src={traitUrls[trait.imagePath] || ''}
+                    src={traitUrls[trait.imagePath] || ""}
                     alt={trait.name}
                     fill
                     sizes="(max-width: 768px) 100vw, 33vw"
@@ -73,15 +79,13 @@ export function PreviewCard({
               attribute.traits?.[0] && (
                 <div key={attribute.id} className="absolute inset-0">
                   <div className="relative w-full h-full">
-                    <Image
+                    <img
                       src={traitUrls[attribute.traits[0].imagePath]}
                       alt={attribute.traits[0].name}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 33vw"
                       className={
                         pixelated
-                          ? "object-contain image-rendering-pixelated"
-                          : "object-contain"
+                          ? "object-cover image-rendering-pixelated w-full h-full"
+                          : "object-cover w-full h-full"
                       }
                     />
                   </div>

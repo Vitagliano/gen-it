@@ -32,6 +32,17 @@ type TokenWithTraits = {
   traits: Trait[];
 };
 
+interface TokenMetadata {
+  name: string;
+  description?: string;
+  image?: string;
+  attributes: Array<{
+    trait_type: string;
+    value: string;
+  }>;
+  [key: string]: any; // For any additional custom metadata fields
+}
+
 // Store export progress and data in memory (consider using a persistent store like Redis for production)
 const exportProgress = new Map<string, number>();
 const exportData = new Map<string, { buffer: Buffer; name: string }>();
@@ -212,7 +223,7 @@ async function generateExport(collectionId: string, address: string) {
             return;
           }
 
-          const metadata = generateTokenMetadata(collectionData, tokenTraits.traitIds) as any;
+          const metadata = generateTokenMetadata(collectionData, tokenTraits.traitIds) as TokenMetadata;
 
           // Fetch trait details
           const traits = collectionData.attributes.flatMap(attr => attr.traits).filter(trait => tokenTraits.traitIds.includes(trait.id));
