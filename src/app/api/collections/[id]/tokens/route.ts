@@ -124,7 +124,7 @@ export async function POST(
             return tx.token.create({
               data: {
                 tokenNumber: token.tokenNumber,
-                metadata: token.metadata,
+                metadata: JSON.parse(JSON.stringify(token.metadata)),
                 collection: {
                   connect: { id: token.collectionId },
                 },
@@ -236,7 +236,7 @@ export async function GET(
             return NextResponse.json({
               tokens: [{
                 tokenNumber: tokenNum,
-                metadata,
+                metadata: JSON.parse(JSON.stringify(metadata)),
                 traits
               }],
               total: 1,
