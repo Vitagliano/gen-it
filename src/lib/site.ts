@@ -2,10 +2,10 @@ import { env } from "@/env";
 import { SiteConfig } from "@/types";
 
 export const siteConfig: SiteConfig = {
-  name: "Start3r",
+  name: "Gen It",
   author: "Vitagliano",
-  description: "A web3 boilerplate for your next project.",
-  keywords: ["web3", "crypto", "nft", "boilerplate"],
+  description: "Generate your own NFT collection.",
+  keywords: ["nft", "collection", "generator"],
   url: {
     base: env.NEXT_PUBLIC_APP_URL,
     author: "https://gabrielrusso.me",
