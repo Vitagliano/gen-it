@@ -15,8 +15,8 @@ if (missingVars.length > 0) {
 const s3Client = new S3Client({
   region: env.NEXT_PUBLIC_AWS_REGION,
   credentials: {
-    accessKeyId: "AKIASJO5BJOUQM5PHGN6",
-    secretAccessKey: "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",
+    accessKeyId: "",
+    secretAccessKey: "",
   },
 });
 
